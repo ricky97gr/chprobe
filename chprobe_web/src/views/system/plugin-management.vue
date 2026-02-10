@@ -23,44 +23,34 @@
                 <span>{{ record.version }}</span>
               </template>
               <template v-if="column.key === 'action'">
-                <a-space>
-                  <a-button 
-                    type="primary" 
-                    size="small" 
-                    @click="startPlugin(record.pluginId)"
-                    :disabled="record.status === 'running'"
-                    :loading="record.loading"
-                  >
-                    启动
+                <a-dropdown>
+                  <a-button type="text" size="small">
+                    操作 <DownOutlined />
                   </a-button>
-                  <a-button 
-                    size="small" 
-                    @click="stopPlugin(record.pluginId)"
-                    :disabled="record.status !== 'running'"
-                    :loading="record.loading"
-                  >
-                    停止
-                  </a-button>
-                  <a-button 
-                    size="small" 
-                    @click="restartPlugin(record.pluginId)"
-                    :loading="record.loading"
-                  >
-                    重启
-                  </a-button>
-                  <a-button 
-                    size="small" 
-                    @click="viewRoutes(record.pluginId)"
-                  >
-                    路由
-                  </a-button>
-                  <a-button 
-                    size="small" 
-                    @click="healthCheck(record.pluginId)"
-                  >
-                    健康
-                  </a-button>
-                </a-space>
+                  <template #overlay>
+                    <a-menu>
+                      <a-menu-item key="start" @click="startPlugin(record.pluginId)" :disabled="record.status === 'running' || record.loading">
+                        启动
+                      </a-menu-item>
+                      <a-menu-item key="stop" @click="stopPlugin(record.pluginId)" :disabled="record.status !== 'running' || record.loading">
+                        停止
+                      </a-menu-item>
+                      <a-menu-item key="restart" @click="restartPlugin(record.pluginId)" :disabled="record.loading">
+                        重启
+                      </a-menu-item>
+                      <a-menu-item key="routes" @click="viewRoutes(record.pluginId)">
+                        路由
+                      </a-menu-item>
+                      <a-menu-item key="health" @click="healthCheck(record.pluginId)">
+                        健康
+                      </a-menu-item>
+                      <a-menu-divider />
+                      <a-menu-item key="delete" @click="deletePlugin(record.pluginId)" :disabled="record.loading" danger>
+                        删除
+                      </a-menu-item>
+                    </a-menu>
+                  </template>
+                </a-dropdown>
               </template>
             </template>
             <template #description="{ text }">
@@ -224,7 +214,7 @@
 import { ref, computed, watch, inject, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { useRoute } from 'vue-router'
-import { SyncOutlined } from '@ant-design/icons-vue'
+import { SyncOutlined, DownOutlined } from '@ant-design/icons-vue'
 import * as api from '@/api/request'
 import { usePluginLoader } from '@/composables/usePluginLoader'
 
@@ -314,7 +304,8 @@ const syncMarketPlugins = async () => {
         description: item.description || '',
         author: item.author || 'ChProbe Team',
         downloads: item.downloadCount || 0,
-        uploadTime: item.uploadedAt || item.createTime || ''
+        uploadTime: item.uploadedAt || item.createTime || '',
+        downloadUrl: item.downloadUrl || ''
       }))
       message.success('同步成功')
     } else {
@@ -346,12 +337,12 @@ const myPluginColumns = [
   },
   { title: '作者', dataIndex: 'author', key: 'author' },
   { title: '安装时间', dataIndex: 'installTime', key: 'installTime' },
-  { 
+  {
     title: '操作', 
     dataIndex: 'action', 
     key: 'action', 
     fixed: 'right',
-    width: 300
+    width: 100
   }
 ]
 
@@ -473,6 +464,28 @@ const stopPlugin = async (pluginId: string) => {
   }
 }
 
+// 删除插件
+const deletePlugin = async (pluginId: string) => {
+  try {
+    const plugin = myPlugins.value.find(p => p.pluginId === pluginId)
+    if (plugin) {
+      plugin.loading = true
+    }
+    
+    await api.del(`/plugin/uninstall/${pluginId}`)
+    
+    message.success('插件删除成功')
+    // 重新加载整个页面
+    window.location.reload()
+  } catch (error: any) {
+    message.error('插件删除失败: ' + error.message)
+    const plugin = myPlugins.value.find(p => p.pluginId === pluginId)
+    if (plugin) {
+      plugin.loading = false
+    }
+  }
+}
+
 // 重启插件
 const restartPlugin = async (pluginId: string) => {
   try {
@@ -575,49 +588,57 @@ const installPlugin = async (pluginId: string) => {
   }
 
   try {
-    // 首先调用后端API创建插件记录，状态设为下载中
-    await api.post('/plugin/install', {
-      pluginId: plugin.pluginId,
-      name: plugin.name,
-      version: plugin.version,
-      author: plugin.author,
-      description: plugin.description
-    })
-
     // 开始下载，设置下载进度为0
     downloadProgress.value[pluginId] = 0
 
-    // 模拟下载过程，30秒完成
-    const downloadDuration = 30000 // 30秒
-    const interval = 1000 // 1秒
-    const steps = downloadDuration / interval
-    const progressStep = 100 / steps
+    // 通过后端API创建下载任务
+    const createTaskResponse = await api.post('/plugin/download/task', {
+      pluginId: plugin.pluginId,
+      pluginName: plugin.name,
+      version: plugin.version,
+      author: plugin.author,
+      description: plugin.description,
+      downloadUrl: plugin.downloadUrl
+    })
 
-    const downloadInterval = setInterval(() => {
-      downloadProgress.value[pluginId] = parseFloat((downloadProgress.value[pluginId] + progressStep).toFixed(2))
-      if (downloadProgress.value[pluginId] >= 100) {
-        clearInterval(downloadInterval)
-        // 下载完成，设置进度为100
-        downloadProgress.value[pluginId] = 100
-        // 延迟1秒后清除进度，显示安装成功
-        setTimeout(() => {
-          delete downloadProgress.value[pluginId]
-          message.success('插件下载成功')
-          // 下载完成后，更新插件状态为待启用
-          api.post('/plugin/update-status', {
-            pluginId: plugin.pluginId,
-            status: 'pending'
-          }).then(() => {
+    const taskId = createTaskResponse.result.taskId
+    if (!taskId) {
+      throw new Error('创建下载任务失败: 未获取到任务ID')
+    }
+
+    // 3秒检查一次任务进度（通过后端API）
+    const checkStatusInterval = setInterval(async () => {
+      try {
+        const statusResponse = await api.get('/plugin/download/status/' + taskId)
+        
+        // 更新下载进度
+        downloadProgress.value[pluginId] = parseFloat(statusResponse.result.progress.toFixed(2))
+
+        // 检查下载是否完成
+        if (statusResponse.result.status === 'completed') {
+          clearInterval(checkStatusInterval)
+          // 下载完成，设置进度为100
+          downloadProgress.value[pluginId] = 100
+          
+          // 延迟1秒后清除进度，显示安装成功
+          setTimeout(() => {
+            delete downloadProgress.value[pluginId]
+            message.success('插件下载成功')
             // 重新获取我的插件列表
             getMyPlugins()
-          }).catch((error: any) => {
-            // 如果后端没有这个API，忽略错误，直接获取插件列表
-            console.log('更新插件状态失败:', error)
-            getMyPlugins()
-          })
-        }, 1000)
+          }, 1000)
+        } else if (statusResponse.result.status === 'failed') {
+          clearInterval(checkStatusInterval)
+          delete downloadProgress.value[pluginId]
+          message.error('插件下载失败: ' + (statusResponse.result.error || '未知错误'))
+        }
+      } catch (error: any) {
+        console.error('查询下载状态失败:', error)
+        clearInterval(checkStatusInterval)
+        delete downloadProgress.value[pluginId]
+        message.error('查询下载状态失败: ' + error.message)
       }
-    }, interval)
+    }, 3000) // 3秒检查一次任务进度
   } catch (error: any) {
     message.error('插件下载失败: ' + error.message)
     // 清除下载进度

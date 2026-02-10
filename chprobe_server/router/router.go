@@ -123,6 +123,10 @@ func Start() {
 				plugin.PUT("/toggle/:pluginId", controller.TogglePlugin)
 				// 更新插件状态
 				plugin.POST("/update-status", controller.UpdatePluginStatus)
+				// 创建下载任务
+				plugin.POST("/download/task", controller.CreateDownloadTask)
+				// 查询下载进度
+				plugin.GET("/download/status/:taskId", controller.GetDownloadStatus)
 			}
 
 			// 插件进程管理

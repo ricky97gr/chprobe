@@ -146,23 +146,27 @@ func UploadLicense(c *gin.Context) {
 	}
 
 	// 字符串上传
-	licenseStr := c.PostForm("license")
-	if licenseStr == "" {
-		// 尝试从 JSON 请求体中获取
-		var jsonData map[string]string
-		if err := c.ShouldBindJSON(&jsonData); err == nil {
-			licenseStr = jsonData["license"]
-		}
+	var licenseStr string
 
-		if licenseStr == "" {
-			response.Failed(c, response.ErrStruct, "License content is required")
-			return
-		}
+	// 先尝试从JSON请求体中获取（因为前端发送的是JSON格式）
+	var jsonData map[string]string
+	if err := c.ShouldBindJSON(&jsonData); err == nil {
+		licenseStr = jsonData["license"]
+	} else {
+		// 如果JSON解析失败，尝试从表单中获取
+		licenseStr = c.PostForm("license")
+	}
+
+	if licenseStr == "" {
+		fmt.Println("licenseStr is empty")
+		response.Failed(c, response.ErrStruct, "License content is required")
+		return
 	}
 
 	// 验证和解密授权字符串
 	licenseData, valid, err := utils.VerifyLicenseString(licenseStr)
 	if err != nil || !valid {
+		fmt.Println("licenseStr is invalid")
 		response.Failed(c, response.ErrStruct, "Invalid license string: "+err.Error())
 		return
 	}

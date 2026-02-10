@@ -15,7 +15,7 @@ import (
 var publicKey *rsa.PublicKey
 
 func InitRSA() error {
-	publicKeyBytes, err := os.ReadFile("/root/go_workspace/chprobe/chprobe_server/utils/public.pem")
+	publicKeyBytes, err := os.ReadFile("./utils/public.pem")
 	if err != nil {
 		return fmt.Errorf("failed to read public key file: %w", err)
 	}

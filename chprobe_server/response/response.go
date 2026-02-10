@@ -22,10 +22,11 @@ func Success(ctx *gin.Context, result interface{}, total int64, detail ...interf
 // Failed 失败响应
 func Failed(ctx *gin.Context, errCode int32, msg string, detail ...interface{}) {
 	ctx.JSON(
-		http.StatusOK,
+		http.StatusServiceUnavailable,
 		gin.H{
-			"code": errCode,
-			"msg":  errCodeMap[errCode].msgCn,
+			"code":   errCode,
+			"msg":    errCodeMap[errCode].msgCn,
+			"detail": detail,
 		},
 	)
 }

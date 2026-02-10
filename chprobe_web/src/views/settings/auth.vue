@@ -162,18 +162,41 @@ const authColumns = [
 ]
 
 // 复制产品序列号
-const copySerial = () => {
+const copySerial = async () => {
   if (!productSerial.value) {
     message.warning('产品序列号为空')
     return
   }
-  navigator.clipboard.writeText(productSerial.value)
-    .then(() => {
-      message.success('复制成功')
-    })
-    .catch(() => {
+  
+  try {
+    // 尝试使用现代的Clipboard API
+    await navigator.clipboard.writeText(productSerial.value)
+    message.success('复制成功')
+  } catch (err) {
+    console.error('复制失败:', err)
+    // 降级方案：使用传统的文本域复制
+    const textArea = document.createElement('textarea')
+    textArea.value = productSerial.value
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-999999px'
+    textArea.style.top = '-999999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    
+    try {
+      const successful = document.execCommand('copy')
+      if (successful) {
+        message.success('复制成功')
+      } else {
+        message.error('复制失败')
+      }
+    } catch (err) {
       message.error('复制失败')
-    })
+    } finally {
+      document.body.removeChild(textArea)
+    }
+  }
 }
 
 // 获取授权信息
