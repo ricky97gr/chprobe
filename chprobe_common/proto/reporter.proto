@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package reporter;
+
+option go_package="./;proto";
+
+service Reporter{
+    rpc ReportToServer(MessageInfo) returns(Response){}
+}
+
+message MessageInfo{
+    string Client = 1;
+    int32 MessageType = 2;
+    int64 ReportTime = 3;
+    bytes data = 4;
+}
+
+message Response{
+    bool Success = 1;
+    string Result = 2;
+    int32 DataLength =3;
+}

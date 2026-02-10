@@ -1,0 +1,4 @@
+chprobe_web/.vscode
+chprobe_web/node_modules
+chprobe_client/bin
+chprobe_server/bin
