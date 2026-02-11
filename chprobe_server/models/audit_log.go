@@ -1,9 +1,9 @@
 package models
 
 type AuditLog struct {
-	ID        int64  `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	UUID      string `json:"uuid" gorm:"column:uuid;primaryKey;type:varchar(36)"`
 	Type      string `json:"type" gorm:"column:type"`
-	UserID    int64  `json:"userId" gorm:"column:user_id"`
+	UserUUID  string `json:"userUUID" gorm:"column:user_uuid;type:varchar(36)"`
 	Username  string `json:"username" gorm:"column:username"`
 	Content   string `json:"content" gorm:"column:content;type:text"`
 	IP        string `json:"ip" gorm:"column:ip"`

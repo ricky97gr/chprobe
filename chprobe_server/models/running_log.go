@@ -1,7 +1,7 @@
 package models
 
 type RunningLog struct {
-	ID        int64  `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	UUID      string `json:"uuid" gorm:"column:uuid;primaryKey;type:varchar(36)"`
 	HostUUID  string `json:"hostUUID" gorm:"column:host_uuid;index"`
 	Level     string `json:"level" gorm:"column:level"`
 	Message   string `json:"message" gorm:"column:message;type:text"`

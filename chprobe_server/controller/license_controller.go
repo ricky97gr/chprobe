@@ -3,10 +3,10 @@ package controller
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
 	"github.com/ricky97gr/chprobe/chprobe_server/models"
@@ -14,8 +14,8 @@ import (
 	"github.com/ricky97gr/chprobe/chprobe_server/utils"
 )
 
-// GetAuthInfo 获取授权信息
-func GetAuthInfo(c *gin.Context) {
+// GetLicenseInfo 获取授权信息
+func GetLicenseInfo(c *gin.Context) {
 	// 获取数据库连接
 	db, err := database.GetMysqlClient()
 	if err != nil {
@@ -32,7 +32,7 @@ func GetAuthInfo(c *gin.Context) {
 
 	// 查询授权信息
 	var licenses []models.License
-	if err := db.Order("id desc").Find(&licenses).Error; err != nil {
+	if err := db.Order("uuid desc").Find(&licenses).Error; err != nil {
 		response.Failed(c, response.ErrDB, "Failed to get license info")
 		return
 	}
@@ -54,7 +54,7 @@ func GetAuthInfo(c *gin.Context) {
 		}
 
 		authInfo := map[string]interface{}{
-			"id":         strconv.FormatInt(license.ID, 10),
+			"id":         license.UUID,
 			"type":       license.Type,
 			"importTime": time.UnixMilli(license.ImportTime).Format("2006-01-02 15:04:05"),
 			"expireTime": time.UnixMilli(license.ExpireTime).Format("2006-01-02 15:04:05"),
@@ -127,6 +127,7 @@ func UploadLicense(c *gin.Context) {
 
 		// 创建授权信息
 		license := models.License{
+			UUID:       uuid.New().String(),
 			Serial:     serial,
 			Type:       licenseType,
 			Content:    string(content),
@@ -189,6 +190,7 @@ func UploadLicense(c *gin.Context) {
 
 	// 创建授权信息
 	license := models.License{
+		UUID:       uuid.New().String(),
 		Serial:     serial,
 		Type:       licenseType,
 		Content:    licenseStr,
@@ -223,7 +225,7 @@ func DeleteLicense(c *gin.Context) {
 	}
 
 	// 删除授权
-	if err := db.Where("id = ?", licenseID).Delete(&models.License{}).Error; err != nil {
+	if err := db.Where("uuid = ?", licenseID).Delete(&models.License{}).Error; err != nil {
 		response.Failed(c, response.ErrDB, "Failed to delete license")
 		return
 	}
@@ -249,7 +251,7 @@ func GetLicenseDetail(c *gin.Context) {
 
 	// 查询授权信息
 	var license models.License
-	if err := db.Where("id = ?", licenseID).First(&license).Error; err != nil {
+	if err := db.Where("uuid = ?", licenseID).First(&license).Error; err != nil {
 		response.Failed(c, response.ErrDB, "License not found")
 		return
 	}
@@ -267,7 +269,7 @@ func GetLicenseDetail(c *gin.Context) {
 	}
 
 	authInfo := map[string]interface{}{
-		"id":         strconv.FormatInt(license.ID, 10),
+		"id":         license.UUID,
 		"serial":     license.Serial,
 		"type":       license.Type,
 		"importTime": time.UnixMilli(license.ImportTime).Format("2006-01-02 15:04:05"),

@@ -3,8 +3,7 @@ package models
 import "time"
 
 type Plugin struct {
-	ID          int64     `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
-	UUID        string    `json:"uuid" gorm:"column:uuid;type:varchar(36);uniqueIndex"`
+	UUID        string    `json:"uuid" gorm:"column:uuid;primaryKey;type:varchar(36)"`
 	PluginID    string    `json:"pluginId" gorm:"column:plugin_id;type:varchar(50);uniqueIndex"`
 	Name        string    `json:"name" gorm:"column:name;type:varchar(100)"`
 	Version     string    `json:"version" gorm:"column:version;type:varchar(20)"`

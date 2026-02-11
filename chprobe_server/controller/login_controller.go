@@ -20,7 +20,7 @@ type LoginRequest struct {
 
 // UserUI 用户数据传输对象
 type UserUI struct {
-	ID            int64  `json:"id"`
+	ID            string `json:"id"`
 	Username      string `json:"username"`
 	CreateTime    int64  `json:"create_time"`
 	LastLoginTime int64  `json:"last_login_time"`
@@ -39,7 +39,7 @@ type LoginResponse struct {
 // 将User转换为UserUI
 func toUserUI(user models.User) UserUI {
 	return UserUI{
-		ID:            user.ID,
+		ID:            user.UUID,
 		Username:      user.Username,
 		CreateTime:    user.CreateTime,
 		LastLoginTime: user.LastLoginTime,
@@ -86,7 +86,7 @@ func Login(c *gin.Context) {
 	}
 
 	// 生成JWT令牌
-	token, err := utils.GenerateToken(user.ID, user.Username)
+	token, err := utils.GenerateToken(user.UUID, user.Username)
 	if err != nil {
 		response.Failed(c, response.ErrAuth, "Failed to generate token")
 		return
@@ -95,8 +95,8 @@ func Login(c *gin.Context) {
 	// 将令牌保存到Redis
 	redisClient, err := database.GetRedisClient()
 	if err == nil {
-		// 令牌键格式：token:{user_id}
-		tokenKey := fmt.Sprintf("token:%d", user.ID)
+		// 令牌键格式：token:{user_uuid}
+		tokenKey := fmt.Sprintf("token:%s", user.UUID)
 		// 设置令牌，过期时间24小时
 		redisClient.Set(tokenKey, token, 24*time.Hour)
 	}

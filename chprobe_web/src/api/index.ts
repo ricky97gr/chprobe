@@ -9,7 +9,7 @@ export interface LoginRequest {
 
 // 用户信息接口
 export interface UserInfo {
-  id: number;
+  id: string;
   username: string;
   create_time: number;
   last_login_time: number;
@@ -96,7 +96,7 @@ export const getImageList = async (params: PageQuery) => {
 };
 
 // 获取镜像详情API
-export const getImageDetail = async (id: number) => {
+export const getImageDetail = async (id: string) => {
   return get<any>(`/image/detail/${id}`);
 };
 
@@ -106,7 +106,7 @@ export const getContainerList = async (params: PageQuery) => {
 };
 
 // 获取容器详情API
-export const getContainerDetail = async (id: number) => {
+export const getContainerDetail = async (id: string) => {
   return get<any>(`/container/detail/${id}`);
 };
 

@@ -1,7 +1,7 @@
 package models
 
 type AccessLog struct {
-	ID           int64  `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	UUID         string `json:"uuid" gorm:"column:uuid;primaryKey;type:varchar(36)"`
 	Path         string `json:"path" gorm:"column:path"`
 	Method       string `json:"method" gorm:"column:method"`
 	IP           string `json:"ip" gorm:"column:ip"`

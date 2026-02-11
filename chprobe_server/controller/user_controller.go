@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
 	"github.com/ricky97gr/chprobe/chprobe_server/models"
@@ -43,7 +43,7 @@ func toUserResponse(user models.User) UserResponse {
 	}
 
 	return UserResponse{
-		ID:            strconv.FormatInt(user.ID, 10),
+		ID:            user.UUID,
 		Username:      user.Username,
 		Email:         user.Email,
 		Status:        user.Status,
@@ -105,6 +105,7 @@ func CreateUser(c *gin.Context) {
 
 	// 创建用户
 	newUser := models.User{
+		UUID:          uuid.New().String(),
 		Username:      userReq.Username,
 		Email:         userReq.Email,
 		Password:      "123456", // 默认密码
@@ -127,15 +128,9 @@ func CreateUser(c *gin.Context) {
 
 // UpdateUser 更新用户
 func UpdateUser(c *gin.Context) {
-	idStr := c.Param("id")
-	if idStr == "" {
-		response.Failed(c, response.ErrStruct, "Invalid user ID")
-		return
-	}
-
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Failed(c, response.ErrStruct, "Invalid user ID format")
+	uuidStr := c.Param("id")
+	if uuidStr == "" {
+		response.Failed(c, response.ErrStruct, "Invalid user UUID")
 		return
 	}
 
@@ -154,7 +149,7 @@ func UpdateUser(c *gin.Context) {
 
 	// 查找用户
 	var user models.User
-	result := db.First(&user, id)
+	result := db.Where("uuid = ?", uuidStr).First(&user)
 	if result.Error != nil {
 		response.Failed(c, response.ErrDB, "User not found")
 		return
@@ -177,15 +172,9 @@ func UpdateUser(c *gin.Context) {
 
 // ResetPassword 重置用户密码
 func ResetPassword(c *gin.Context) {
-	idStr := c.Param("id")
-	if idStr == "" {
-		response.Failed(c, response.ErrStruct, "Invalid user ID")
-		return
-	}
-
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Failed(c, response.ErrStruct, "Invalid user ID format")
+	uuidStr := c.Param("id")
+	if uuidStr == "" {
+		response.Failed(c, response.ErrStruct, "Invalid user UUID")
 		return
 	}
 
@@ -198,7 +187,7 @@ func ResetPassword(c *gin.Context) {
 
 	// 查找用户
 	var user models.User
-	result := db.First(&user, id)
+	result := db.Where("uuid = ?", uuidStr).First(&user)
 	if result.Error != nil {
 		response.Failed(c, response.ErrDB, "User not found")
 		return
@@ -232,8 +221,8 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// 从JWT中获取用户ID
-	userID, exists := c.Get("userID")
+	// 从JWT中获取用户UUID
+	userUUID, exists := c.Get("userUUID")
 	if !exists {
 		response.Failed(c, response.ErrAuth, "User not authenticated")
 		return
@@ -248,7 +237,7 @@ func ChangePassword(c *gin.Context) {
 
 	// 查找用户
 	var user models.User
-	result := db.First(&user, userID)
+	result := db.Where("uuid = ?", userUUID).First(&user)
 	if result.Error != nil {
 		response.Failed(c, response.ErrDB, "User not found")
 		return
@@ -282,15 +271,9 @@ func ChangePassword(c *gin.Context) {
 
 // DeleteUser 删除用户
 func DeleteUser(c *gin.Context) {
-	idStr := c.Param("id")
-	if idStr == "" {
-		response.Failed(c, response.ErrStruct, "Invalid user ID")
-		return
-	}
-
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Failed(c, response.ErrStruct, "Invalid user ID format")
+	uuidStr := c.Param("id")
+	if uuidStr == "" {
+		response.Failed(c, response.ErrStruct, "Invalid user UUID")
 		return
 	}
 
@@ -302,7 +285,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	// 删除用户
-	result := db.Delete(&models.User{}, id)
+	result := db.Where("uuid = ?", uuidStr).Delete(&models.User{})
 	if result.Error != nil {
 		response.Failed(c, response.ErrDB, "Failed to delete user")
 		return

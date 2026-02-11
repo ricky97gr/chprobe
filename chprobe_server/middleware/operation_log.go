@@ -47,7 +47,7 @@ func OperationLogger() gin.HandlerFunc {
 			ctx.Next()
 
 			// 获取用户信息（如果已登录）
-			userID, _ := ctx.Get("userID")
+			userUUID, _ := ctx.Get("userUUID")
 			username, _ := ctx.Get("username")
 
 			// 构建操作描述
@@ -86,9 +86,9 @@ func OperationLogger() gin.HandlerFunc {
 					return
 				}
 
-				userIDInt64 := int64(0)
-				if id, ok := userID.(int64); ok {
-					userIDInt64 = id
+				userUUIDStr := ""
+				if id, ok := userUUID.(string); ok {
+					userUUIDStr = id
 				}
 
 				usernameStr := ""
@@ -97,7 +97,7 @@ func OperationLogger() gin.HandlerFunc {
 				}
 
 				operationLog := models.OperationLog{
-					UserID:    userIDInt64,
+					UserUUID:  userUUIDStr,
 					Username:  usernameStr,
 					Operation: operation,
 					Content:   content,

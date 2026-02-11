@@ -1,8 +1,8 @@
 package models
 
 type OperationLog struct {
-	ID        int64  `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
-	UserID    int64  `json:"userId" gorm:"column:user_id"`
+	UUID      string `json:"uuid" gorm:"column:uuid;primaryKey;type:varchar(36)"`
+	UserUUID  string `json:"userUUID" gorm:"column:user_uuid;type:varchar(36)"`
 	Username  string `json:"username" gorm:"column:username"`
 	Operation string `json:"operation" gorm:"column:operation"`
 	Content   string `json:"content" gorm:"column:content;type:text"`

@@ -1,8 +1,14 @@
 package controller
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +27,7 @@ func GetMyPlugins(c *gin.Context) {
 		return
 	}
 	var plugins []models.Plugin
-	result := db.Order("id desc").Find(&plugins)
+	result := db.Order("uuid desc").Find(&plugins)
 	if result.Error != nil {
 		response.Failed(c, response.ErrDB, "获取插件列表失败")
 		return
@@ -233,7 +239,28 @@ func CreateDownloadTask(c *gin.Context) {
 		response.Failed(c, response.ErrStruct, "请求参数错误")
 		return
 	}
+	db, err := database.GetMysqlClient()
+	if err != nil {
+		response.Failed(c, response.ErrDB, "数据库连接失败")
+		return
+	}
 
+	// 查询授权信息
+	var licenses []models.License
+	if err := db.Order("uuid desc").Find(&licenses).Error; err != nil {
+		response.Failed(c, response.ErrDB, "查询授权信息失败")
+		return
+	}
+	if len(licenses) == 0 {
+		response.Failed(c, response.ErrStruct, "未授权插件")
+		return
+	}
+	var licenseStr string
+	for _, l := range licenses {
+		if l.Status == "valid" {
+			licenseStr = l.Content
+		}
+	}
 	// 从DownloadUrl中提取插件市场的基础URL
 	baseUrl := ""
 	if requestData.DownloadUrl != "" {
@@ -252,27 +279,11 @@ func CreateDownloadTask(c *gin.Context) {
 	}
 
 	// 向插件市场发起校验请求，获取任务id
-	taskId, err := createPluginMarketTask(baseUrl, requestData.PluginID)
+	taskId, err := createPluginMarketTask(baseUrl, requestData.PluginID, licenseStr)
 	if err != nil {
 		response.Failed(c, response.ErrStruct, "创建插件市场下载任务失败: "+err.Error())
 		return
 	}
-
-	// 创建下载任务记录
-	taskInfo := map[string]interface{}{
-		"taskId":     taskId,
-		"pluginId":   requestData.PluginID,
-		"pluginName": requestData.PluginName,
-		"version":    requestData.Version,
-		"author":     requestData.Author,
-		"status":     "downloading",
-		"progress":   0.0,
-		"createdAt":  time.Now(),
-		"updatedAt":  time.Now(),
-	}
-
-	// 存储任务信息
-	downloadTasks[taskId] = taskInfo
 
 	// 异步开始下载
 	go func() {
@@ -348,8 +359,70 @@ func GetDownloadStatus(c *gin.Context) {
 }
 
 // createPluginMarketTask 向插件市场发起校验请求，获取任务id
-func createPluginMarketTask(baseUrl string, pluginId string) (string, error) {
-	// 这里应该向插件市场发起实际的校验请求
-	// 由于是示例，这里模拟返回一个任务id
-	return uuid.New().String(), nil
+func createPluginMarketTask(baseUrl string, pluginId string, licStr string) (string, error) {
+	// 构建请求体
+	pluginIdInt, err := strconv.ParseUint(pluginId, 10, 32)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse pluginId: %v", err)
+	}
+
+	requestBody := struct {
+		PluginID uint   `json:"pluginId"`
+		License  string `json:"license"`
+	}{
+		PluginID: uint(pluginIdInt),
+		License:  licStr,
+	}
+
+	// 序列化请求体
+	requestBodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request body: %v", err)
+	}
+
+	// 创建HTTP客户端
+	client := &http.Client{}
+
+	// 创建HTTP请求
+	req, err := http.NewRequest("POST", baseUrl+"/download/task", bytes.NewBuffer(requestBodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送HTTP请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应体
+	responseBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	// 解析响应体
+	var response struct {
+		Code   int    `json:"code"`
+		Msg    string `json:"msg"`
+		Result struct {
+			TaskID string `json:"taskId"`
+		} `json:"result"`
+	}
+
+	if err := json.Unmarshal(responseBodyBytes, &response); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response body: %v", err)
+	}
+
+	// 检查响应状态
+	if response.Code != 0 {
+		return "", fmt.Errorf("plugin market returned error: %s", response.Msg)
+	}
+
+	// 返回任务ID
+	return response.Result.TaskID, nil
 }

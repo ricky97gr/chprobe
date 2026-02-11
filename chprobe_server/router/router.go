@@ -101,7 +101,7 @@ func Start() {
 			license := authApi.Group("/license")
 			{
 				// 获取授权信息
-				license.GET("/info", controller.GetAuthInfo)
+				license.GET("/info", controller.GetLicenseInfo)
 				// 获取授权详情
 				license.GET("/detail/:id", controller.GetLicenseDetail)
 				// 上传授权文件/字符串

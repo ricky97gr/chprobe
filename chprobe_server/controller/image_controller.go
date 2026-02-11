@@ -11,32 +11,32 @@ import (
 
 // ImageUI 镜像数据传输对象
 type ImageUI struct {
-	ID           int64  `json:"id"`
-	HostUUID     string `json:"hostUUID"`
-	ImageID      string `json:"imageID"`
-	RepoTags     string `json:"repoTags"`
-	RepoDigests  string `json:"repoDigests"`
-	Size         int64  `json:"size"`
-	Created      int64  `json:"created"`
-	Os           string `json:"os"`
-	Architecture string `json:"architecture"`
-	DockerVersion string `json:"dockerVersion"`
-	LastUpdateTime int64 `json:"lastUpdateTime"`
+	ID             string `json:"id"`
+	HostUUID       string `json:"hostUUID"`
+	ImageID        string `json:"imageID"`
+	RepoTags       string `json:"repoTags"`
+	RepoDigests    string `json:"repoDigests"`
+	Size           int64  `json:"size"`
+	Created        int64  `json:"created"`
+	Os             string `json:"os"`
+	Architecture   string `json:"architecture"`
+	DockerVersion  string `json:"dockerVersion"`
+	LastUpdateTime int64  `json:"lastUpdateTime"`
 }
 
 // 将ImageInfo转换为ImageUI
 func toImageUI(image models.ImageInfo) ImageUI {
 	return ImageUI{
-		ID:           image.ID,
-		HostUUID:     image.HostUUID,
-		ImageID:      image.ImageID,
-		RepoTags:     image.RepoTags,
-		RepoDigests:  image.RepoDigests,
-		Size:         image.Size,
-		Created:      image.Created,
-		Os:           image.Os,
-		Architecture: image.Architecture,
-		DockerVersion: image.DockerVersion,
+		ID:             image.UUID,
+		HostUUID:       image.HostUUID,
+		ImageID:        image.ImageID,
+		RepoTags:       image.RepoTags,
+		RepoDigests:    image.RepoDigests,
+		Size:           image.Size,
+		Created:        image.Created,
+		Os:             image.Os,
+		Architecture:   image.Architecture,
+		DockerVersion:  image.DockerVersion,
 		LastUpdateTime: image.LastUpdateTime,
 	}
 }

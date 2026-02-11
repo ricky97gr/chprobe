@@ -9,7 +9,7 @@
         :data-source="images"
         :pagination="pagination"
         :loading="loading"
-        row-key="id"
+        row-key="uuid"
         class="table-sm"
       >
         <template #bodyCell="{ column, record }">

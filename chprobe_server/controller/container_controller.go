@@ -11,36 +11,36 @@ import (
 
 // ContainerUI 容器数据传输对象
 type ContainerUI struct {
-	ID           int64  `json:"id"`
-	HostUUID     string `json:"hostUUID"`
-	ContainerID  string `json:"containerID"`
-	Name         string `json:"name"`
-	Image        string `json:"image"`
-	Command      string `json:"command"`
-	State        string `json:"state"`
-	Status       string `json:"status"`
-	Ports        string `json:"ports"`
-	Created      int64  `json:"created"`
-	StartedAt    int64  `json:"startedAt"`
-	FinishedAt   int64  `json:"finishedAt"`
-	LastUpdateTime int64 `json:"lastUpdateTime"`
+	ID             string `json:"id"`
+	HostUUID       string `json:"hostUUID"`
+	ContainerID    string `json:"containerID"`
+	Name           string `json:"name"`
+	Image          string `json:"image"`
+	Command        string `json:"command"`
+	State          string `json:"state"`
+	Status         string `json:"status"`
+	Ports          string `json:"ports"`
+	Created        int64  `json:"created"`
+	StartedAt      int64  `json:"startedAt"`
+	FinishedAt     int64  `json:"finishedAt"`
+	LastUpdateTime int64  `json:"lastUpdateTime"`
 }
 
 // 将ContainerInfo转换为ContainerUI
 func toContainerUI(container models.ContainerInfo) ContainerUI {
 	return ContainerUI{
-		ID:           container.ID,
-		HostUUID:     container.HostUUID,
-		ContainerID:  container.ContainerID,
-		Name:         container.Name,
-		Image:        container.Image,
-		Command:      container.Command,
-		State:        container.State,
-		Status:       container.Status,
-		Ports:        container.Ports,
-		Created:      container.Created,
-		StartedAt:    container.StartedAt,
-		FinishedAt:   container.FinishedAt,
+		ID:             container.UUID,
+		HostUUID:       container.HostUUID,
+		ContainerID:    container.ContainerID,
+		Name:           container.Name,
+		Image:          container.Image,
+		Command:        container.Command,
+		State:          container.State,
+		Status:         container.Status,
+		Ports:          container.Ports,
+		Created:        container.Created,
+		StartedAt:      container.StartedAt,
+		FinishedAt:     container.FinishedAt,
 		LastUpdateTime: container.LastUpdateTime,
 	}
 }

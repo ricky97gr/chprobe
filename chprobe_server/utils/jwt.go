@@ -12,19 +12,19 @@ var jwtSecret = []byte("chprobe_secret_key")
 
 // 自定义Claims
 type Claims struct {
-	UserID   int64  `json:"user_id"`
+	UserUUID string `json:"user_uuid"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
 // 生成JWT令牌
-func GenerateToken(userID int64, username string) (string, error) {
+func GenerateToken(userUUID string, username string) (string, error) {
 	// 设置过期时间
 	expirationTime := time.Now().Add(24 * time.Hour)
 
 	// 创建Claims
 	claims := &Claims{
-		UserID:   userID,
+		UserUUID: userUUID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),

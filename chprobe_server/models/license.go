@@ -2,7 +2,7 @@ package models
 
 // License 授权信息模型
 type License struct {
-	ID         int64  `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	UUID       string `json:"uuid" gorm:"column:uuid;primaryKey;type:varchar(36)"`
 	Serial     string `json:"serial" gorm:"column:serial;type:varchar(50);uniqueIndex"`
 	Type       string `json:"type" gorm:"column:type;type:varchar(50)"`
 	Content    string `json:"content" gorm:"column:content;type:text"`
