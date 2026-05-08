@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -227,6 +226,7 @@ var downloadTasks = make(map[string]map[string]interface{})
 // CreateDownloadTask 创建下载任务
 func CreateDownloadTask(c *gin.Context) {
 	var requestData struct {
+		UUID        string `json:"uuid" binding:"required"`
 		PluginID    string `json:"pluginId" binding:"required"`
 		PluginName  string `json:"pluginName" binding:"required"`
 		Version     string `json:"version" binding:"required"`
@@ -252,7 +252,7 @@ func CreateDownloadTask(c *gin.Context) {
 		return
 	}
 	if len(licenses) == 0 {
-		response.Failed(c, response.ErrStruct, "未授权插件")
+		response.Failed(c, response.ErrStruct, "系统未授权")
 		return
 	}
 	var licenseStr string
@@ -279,7 +279,7 @@ func CreateDownloadTask(c *gin.Context) {
 	}
 
 	// 向插件市场发起校验请求，获取任务id
-	taskId, err := createPluginMarketTask(baseUrl, requestData.PluginID, licenseStr)
+	taskId, err := createPluginMarketTask(baseUrl, requestData.UUID, licenseStr)
 	if err != nil {
 		response.Failed(c, response.ErrStruct, "创建插件市场下载任务失败: "+err.Error())
 		return
@@ -313,7 +313,7 @@ func CreateDownloadTask(c *gin.Context) {
 				if result.Error != nil {
 					// 创建新插件记录，初始状态为待启用
 					plugin := models.Plugin{
-						UUID:        uuid.New().String(),
+						UUID:        requestData.UUID,
 						PluginID:    requestData.PluginID,
 						Name:        requestData.PluginName,
 						Version:     requestData.Version,
@@ -360,18 +360,13 @@ func GetDownloadStatus(c *gin.Context) {
 
 // createPluginMarketTask 向插件市场发起校验请求，获取任务id
 func createPluginMarketTask(baseUrl string, pluginId string, licStr string) (string, error) {
-	// 构建请求体
-	pluginIdInt, err := strconv.ParseUint(pluginId, 10, 32)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse pluginId: %v", err)
-	}
 
 	requestBody := struct {
-		PluginID uint   `json:"pluginId"`
-		License  string `json:"license"`
+		UUID    string `json:"uuid"`
+		License string `json:"license"`
 	}{
-		PluginID: uint(pluginIdInt),
-		License:  licStr,
+		UUID:    pluginId,
+		License: licStr,
 	}
 
 	// 序列化请求体

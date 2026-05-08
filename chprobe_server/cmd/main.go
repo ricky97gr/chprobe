@@ -8,6 +8,7 @@ import (
 	"github.com/ricky97gr/chprobe/chprobe_server/grpc"
 	"github.com/ricky97gr/chprobe/chprobe_server/router"
 	"github.com/ricky97gr/chprobe/chprobe_server/serverinfo"
+	syslog "github.com/ricky97gr/chprobe/chprobe_server/utils"
 )
 
 func main() {
@@ -23,11 +24,21 @@ func main() {
 
 	// 启动数据库
 	database.Start()
+	syslog.LogInfo(syslog.ModuleDatabase, "数据库连接成功，表结构迁移完成")
+
+	// 检测版本变化并记录升级信息
+	syslog.CheckVersionAndRecord()
 
 	// 更新服务器信息
 	if err := serverinfo.UpdateServerInfo(); err != nil {
 		utils.Logger.Errorf("failed to update server info: %+v\n", err)
+		syslog.LogError(syslog.ModuleSystem, "服务器信息更新失败: "+err.Error())
+	} else {
+		syslog.LogInfo(syslog.ModuleSystem, "服务器信息更新完成")
 	}
+
+	// 记录服务启动日志
+	syslog.LogInfo(syslog.ModuleSystem, "ChProbe 服务启动成功")
 
 	// 并行启动gRPC服务和web服务
 	go grpc.Start()

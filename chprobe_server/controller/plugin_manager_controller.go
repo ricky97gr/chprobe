@@ -197,7 +197,7 @@ func GetAllPlugins(c *gin.Context) {
 	}
 
 	var plugins []models.Plugin
-	result := db.Order("id desc").Find(&plugins)
+	result := db.Order("install_time desc").Find(&plugins)
 	if result.Error != nil {
 		response.Failed(c, response.ErrDB, "获取插件列表失败")
 		return

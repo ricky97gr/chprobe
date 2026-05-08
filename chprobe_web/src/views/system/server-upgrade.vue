@@ -1,12 +1,25 @@
 <template>
   <div>
-    <a-card style="margin-bottom: 24px;">
-      <a-table :columns="historyColumns" :data-source="upgradeHistory" row-key="id">
+    <a-card style="margin-bottom: 24px;" title="升级记录">
+      <a-table 
+        :columns="historyColumns" 
+        :data-source="upgradeRecords" 
+        :pagination="pagination"
+        :loading="loading"
+        row-key="uuid"
+        @change="handleTableChange"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 'success' ? 'green' : 'red'">
               {{ record.status === 'success' ? '成功' : '失败' }}
             </a-tag>
+          </template>
+          <template v-if="column.key === 'upgradeType'">
+            <a-tag color="blue">{{ record.upgradeType }}</a-tag>
+          </template>
+          <template v-if="column.key === 'upgradeTime'">
+            {{ formatTime(record.upgradeTime) }}
           </template>
         </template>
       </a-table>
@@ -73,9 +86,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { CopyOutlined, DownloadOutlined, FileTextOutlined } from '@ant-design/icons-vue'
+import { getUpgradeRecordList } from '@/api'
+import type { PageQuery, UpgradeRecord } from '@/api'
 
 // 服务端升级相关数据
 const currentVersion = 'v1.0.0'
@@ -84,28 +99,69 @@ const latestVersion = 'v1.1.0'
 const needUpgrade = true
 const upgradeMethod = ref('online')
 
+const loading = ref(false)
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0
+})
+
+const upgradeRecords = ref<UpgradeRecord[]>([])
+
 const onlineUpgradeCmd = computed(() => {
   return `curl -fsSL http://your-server-ip:8080/upgrade | bash -s -- --version ${latestVersion}`
 })
 
 const historyColumns = [
-  { title: '版本', dataIndex: 'version', key: 'version' },
-  { title: '升级时间', dataIndex: 'upgradeTime', key: 'upgradeTime' },
-  { title: '状态', dataIndex: 'status', key: 'status' },
-  { title: '操作人', dataIndex: 'operator', key: 'operator' },
-  { title: '备注', dataIndex: 'remark', key: 'remark' }
+  { title: '版本号', dataIndex: 'version', key: 'version', width: 120 },
+  { title: '上一版本', dataIndex: 'previousVersion', key: 'previousVersion', width: 120 },
+  { title: '升级类型', dataIndex: 'upgradeType', key: 'upgradeType', width: 100 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
+  { title: '升级时间', dataIndex: 'upgradeTime', key: 'upgradeTime', width: 180 },
+  { title: '服务器IP', dataIndex: 'serverIp', key: 'serverIp', width: 140 },
+  { title: '主机名', dataIndex: 'hostname', key: 'hostname', width: 140 },
+  { title: '操作人', dataIndex: 'operator', key: 'operator', width: 100 },
+  { title: '升级描述', dataIndex: 'description', key: 'description' }
 ]
 
-const upgradeHistory = [
-  {
-    id: '1',
-    version: 'v1.0.0',
-    upgradeTime: '2024-01-01 10:00:00',
-    status: 'success',
-    operator: 'admin',
-    remark: '初始安装'
+const formatTime = (timestamp: number): string => {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+const fetchUpgradeRecords = async () => {
+  console.log('调用获取升级记录API')
+  loading.value = true
+  try {
+    const params: PageQuery = {
+      page: pagination.current,
+      pageSize: pagination.pageSize
+    }
+    const response = await getUpgradeRecordList(params)
+    console.log('API响应:', response)
+    upgradeRecords.value = response.result
+    pagination.total = response.total
+  } catch (error) {
+    console.error('获取升级记录失败:', error)
+    message.error('获取升级记录失败')
+  } finally {
+    loading.value = false
   }
-]
+}
+
+const handleTableChange = (pag: any) => {
+  pagination.current = pag.current
+  pagination.pageSize = pag.pageSize
+  fetchUpgradeRecords()
+}
 
 // 服务端升级方法
 const copyOnlineCmd = () => {
@@ -121,6 +177,14 @@ const downloadUpgradePackage = () => {
 const viewUpgradeLogs = () => {
   message.info('打开升级日志查看器')
 }
+
+console.log('服务端升级页面加载')
+fetchUpgradeRecords()
+
+onMounted(() => {
+  console.log('服务端升级页面onMounted')
+  fetchUpgradeRecords()
+})
 </script>
 
 <style scoped>

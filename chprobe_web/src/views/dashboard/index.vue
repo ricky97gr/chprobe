@@ -58,13 +58,13 @@
     <a-row :gutter="[16, 16]" style="margin-top: 16px;">
       <a-col :xs="24" :lg="16">
         <a-card title="最近系统日志">
-          <a-table :columns="logColumns" :data-source="recentLogs" :pagination="false" :row-key="'id'">
+          <a-table :columns="logColumns" :data-source="recentLogs" :pagination="false" row-key="uuid" :loading="loadingLogs">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'level'">
-                <a-tag :color="getLogColor(record.level)">{{ record.level }}</a-tag>
+                <a-tag :color="getLogColor(record.level.toUpperCase())">{{ record.level.toUpperCase() }}</a-tag>
               </template>
-              <template v-if="column.key === 'time'">
-                {{ formatTime(record.time) }}
+              <template v-if="column.key === 'createdAt'">
+                {{ formatTime(record.createdAt) }}
               </template>
             </template>
           </a-table>
@@ -118,8 +118,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { message } from 'ant-design-vue'
 import { CloudServerOutlined, AppstoreOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons-vue'
-import { getDashboardStats } from '@/api/index'
+import { getDashboardStats, getLatestSystemLog } from '@/api/index'
 
 const stats = reactive({
   clients: {
@@ -155,19 +156,14 @@ const resourceUsage = reactive({
 })
 
 const logColumns = [
-  { title: '日志级别', dataIndex: 'level', key: 'level', width: 80 },
+  { title: '日志级别', dataIndex: 'level', key: 'level', width: 100 },
   { title: '模块', dataIndex: 'module', key: 'module', width: 120 },
-  { title: '内容', dataIndex: 'content', key: 'content' },
-  { title: '时间', dataIndex: 'time', key: 'time', width: 150 }
+  { title: '日志内容', dataIndex: 'message', key: 'message', ellipsis: true },
+  { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 150 }
 ]
 
-const recentLogs = ref([
-  { id: 1, level: 'INFO', module: '客户端', content: '客户端 client-01 成功连接', time: Date.now() - 3600000 },
-  { id: 2, level: 'WARN', module: '插件', content: '插件 plugin-02 加载失败', time: Date.now() - 7200000 },
-  { id: 3, level: 'ERROR', module: '授权', content: '授权验证失败，请检查授权文件', time: Date.now() - 10800000 },
-  { id: 4, level: 'INFO', module: '系统', content: '系统备份完成', time: Date.now() - 14400000 },
-  { id: 5, level: 'WARN', module: '客户端', content: '客户端 client-03 响应超时', time: Date.now() - 18000000 }
-])
+const loadingLogs = ref(false)
+const recentLogs = ref<any[]>([])
 
 const fetchDashboardStats = async () => {
   try {
@@ -206,8 +202,21 @@ const fetchDashboardStats = async () => {
   }
 }
 
+const fetchLatestLogs = async () => {
+  loadingLogs.value = true
+  try {
+    const response = await getLatestSystemLog(10)
+    recentLogs.value = response.result || []
+  } catch (error: any) {
+    message.error('加载最新运行日志失败: ' + error.message)
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
 onMounted(() => {
   fetchDashboardStats()
+  fetchLatestLogs()
 })
 
 const getLogColor = (level: string) => {

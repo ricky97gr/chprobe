@@ -146,8 +146,8 @@
                     </div>
                   </div>
                   <!-- 下载进度条 -->
-                  <div v-if="downloadProgress[plugin.id] !== undefined && downloadProgress[plugin.id] < 100" style="margin-bottom: 16px;">
-                    <a-progress :percent="downloadProgress[plugin.id]" status="active" />
+                  <div v-if="(downloadProgress as any)[plugin.id] !== undefined && (downloadProgress as any)[plugin.id] < 100" style="margin-bottom: 16px;">
+                    <a-progress :percent="(downloadProgress as any)[plugin.id]" status="active" />
                   </div>
                 </div>
               </div>
@@ -155,10 +155,10 @@
                 <a-button 
                   type="primary" 
                   block 
-                  @click="installPlugin(plugin.id)"
-                  :disabled="plugin.installed || downloadProgress[plugin.id] !== undefined"
+                  @click="installPlugin(plugin.uuid)"
+                  :disabled="plugin.installed || downloadProgress[plugin.uuid] !== undefined"
                 >
-                  {{ plugin.installed ? '已下载' : downloadProgress[plugin.id] !== undefined ? '下载中' : '下载' }}
+                  {{ plugin.installed ? '已下载' : downloadProgress[plugin.uuid] !== undefined ? '下载中' : '下载' }}
                 </a-button>
               </div>
             </a-card>
@@ -581,7 +581,7 @@ const getMethodColor = (method: string) => {
 
 // 安装插件
 const installPlugin = async (pluginId: string) => {
-  const plugin = marketPlugins.value.find(p => p.id === pluginId)
+  const plugin = marketPlugins.value.find(p => p.uuid === pluginId)
   if (!plugin) {
     message.error('插件不存在')
     return
@@ -593,6 +593,7 @@ const installPlugin = async (pluginId: string) => {
 
     // 通过后端API创建下载任务
     const createTaskResponse = await api.post('/plugin/download/task', {
+      uuid: plugin.uuid,
       pluginId: plugin.pluginId,
       pluginName: plugin.name,
       version: plugin.version,

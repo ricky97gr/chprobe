@@ -103,7 +103,7 @@ const router = createRouter({
                 {
                   path: '',
                   name: 'RunLogs',
-                  component: () => import('@/views/settings/logs.vue'),
+                  component: () => import('@/views/settings/logs/system.vue'),
                   meta: { title: '运行日志' }
                 },
                 {

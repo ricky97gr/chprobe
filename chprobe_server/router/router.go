@@ -1,6 +1,7 @@
 package router
 
 import (
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -79,6 +80,14 @@ func Start() {
 				log.GET("/operation/list", controller.GetOperationLogList)
 				// 获取访问日志列表
 				log.GET("/access/list", controller.GetAccessLogList)
+				// 上报系统运行日志
+				log.POST("/system/report", controller.ReportSystemLog)
+				// 获取系统运行日志列表
+				log.GET("/system/list", controller.GetSystemLogList)
+				// 获取最新系统运行日志（仪表盘）
+				log.GET("/system/latest", controller.GetLatestSystemLog)
+				// 获取升级记录列表
+				log.GET("/upgrade/list", controller.GetUpgradeRecordList)
 			}
 			// 用户管理
 			user := authApi.Group("/user")
@@ -176,5 +185,9 @@ func Start() {
 		}
 	}
 
-	engine.Run(":8080")
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
+	}
+	engine.Run(":" + httpPort)
 }

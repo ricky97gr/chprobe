@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
@@ -97,6 +98,7 @@ func OperationLogger() gin.HandlerFunc {
 				}
 
 				operationLog := models.OperationLog{
+					UUID:      uuid.New().String(),
 					UserUUID:  userUUIDStr,
 					Username:  usernameStr,
 					Operation: operation,

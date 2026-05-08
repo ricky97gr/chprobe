@@ -135,7 +135,7 @@ const loading = ref(false)
 const productSerial = ref('')
 
 // 授权信息
-const authInfo = ref([])
+const authInfo = ref<any[]>([])
 
 // 上传模态框
 const showUploadModal = ref(false)
@@ -146,11 +146,11 @@ const uploadTab = ref('string')
 const licenseString = ref('')
 
 // 文件列表
-const fileList = ref([])
+const fileList = ref<any[]>([])
 
 // 详情模态框
 const showDetailModal = ref(false)
-const currentLicense = ref(null)
+const currentLicense = ref<any>(null)
 
 // 授权表格列
 const authColumns = [

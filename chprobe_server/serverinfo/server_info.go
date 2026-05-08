@@ -45,7 +45,7 @@ func GetServerInfo() models.ServerInfo {
 		CPU:         cpu,
 		Memory:      memory,
 		Serial:      serial,                                   // 产品序列号
-		Version:     "1.0.0",                                  // 版本号，实际项目中应该从构建参数中获取
+		Version:     "0.0.1",                                  // 版本号，实际项目中应该从构建参数中获取
 		CommitID:    "",                                       // CommitID，实际项目中应该从构建参数中获取
 		BuildTime:   time.Now().Format("2006-01-02 15:04:05"), // 编译时间，实际项目中应该从构建参数中获取
 		ProductName: "CHProbe",                                // 产品名称

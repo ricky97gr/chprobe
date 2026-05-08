@@ -1,30 +1,30 @@
-# Use smaller base image as runtime environment
-FROM alpine:latest
+FROM docker.io/bitnami/nginx:latest
 
-# Install necessary tools
-#RUN apk add --no-cache ca-certificates tzdata
+USER root
 
-# Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 RUN echo "Asia/Shanghai" > /etc/timezone
 
-# Create working directory with writeable layer
 WORKDIR /app
 
-# Create directory for client downloads
-RUN mkdir -p /app/client_downloads && chmod 777 /app/client_downloads
+RUN mkdir -p /app/client_downloads \
+    && mkdir -p /app/config \
+    && chmod 777 /app/client_downloads
 
-# Copy compiled server binary from local directory
-COPY chprobe_server/bin/chprobe_server ./
+COPY docker/nginx.conf /opt/bitnami/nginx/conf/server_blocks/default.conf
 
-# Copy compiled client binary from local directory
+COPY docker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+COPY chprobe_web/dist /app/web
+
+COPY chprobe_server/bin/chprobe_server /app/
+
 COPY chprobe_client/bin/chprobe_client /app/client_downloads/
 
-# Copy configuration files
-COPY chprobe_server/config/config.yaml ./config/
+COPY chprobe_server/config/config.yaml /app/config/
 
-# Expose ports
-EXPOSE 32000 32001
+EXPOSE 8080 32000
 
-# Set startup command
-CMD ["./chprobe_server"]
+ENTRYPOINT []
+CMD ["/app/start.sh"]

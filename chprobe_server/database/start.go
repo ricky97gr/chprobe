@@ -3,6 +3,7 @@ package database
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	conf "github.com/ricky97gr/chprobe/chprobe_server/config"
 	"github.com/ricky97gr/chprobe/chprobe_server/models"
@@ -32,6 +33,8 @@ func Start() {
 		&models.ServerInfo{},
 		&models.Plugin{},
 		&models.Agent{},
+		&models.SystemLog{},
+		&models.UpgradeRecord{},
 	)
 	if err != nil {
 		utils.Logger.Errorf("failed to auto migrate mysql table, err:%+v\n", err)
@@ -54,12 +57,15 @@ func checkAndCreateDefaultUser(db *gorm.DB) {
 	if count == 0 {
 		// 创建默认用户
 		defaultUser := models.User{
-			Username:   "admin",
-			Password:   "admin123", // 注意：实际生产环境中应该使用加密后的密码
-			Status:     "active",
-			Phone:      "13800138000",
-			Email:      "admin@example.com",
-			CreateTime: time.Now().UnixMilli(),
+			UUID:          uuid.New().String(),
+			Username:      "admin",
+			Password:      "admin12345", // 注意：实际生产环境中应该使用加密后的密码
+			Status:        "active",
+			Phone:         "13800138000",
+			Email:         "admin@example.com",
+			CreateTime:    time.Now().UnixMilli(),
+			LastLoginTime: 0,
+			IsFirstLogin:  true,
 		}
 
 		result := db.Create(&defaultUser)

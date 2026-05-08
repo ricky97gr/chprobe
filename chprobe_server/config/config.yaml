@@ -1,6 +1,6 @@
 base:
   systemName: "chprobe"
-  version: "0.0.1_base"
+  version: "0.0.1"
   commitID: "0bce98ce589a74dedd84c9c3d3099f1ce566afe2"
   buildTime: "2023-11-18 12:21:34"
 

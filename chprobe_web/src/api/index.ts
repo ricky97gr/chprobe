@@ -125,9 +125,55 @@ export const getAccessLogList = async (params: PageQuery) => {
   return get<any[]>('/log/access/list', params);
 };
 
-// 获取审计日志列表API
-export const getAuditLogList = async (params: PageQuery) => {
-  return get<any[]>('/log/audit/list', params);
+// 系统运行日志接口
+export interface SystemLog {
+  uuid: string;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  module: string;
+  message: string;
+  serverIp: string;
+  hostname: string;
+  processName: string;
+  pid: number;
+  traceId: string;
+  createdAt: number;
+}
+
+export interface SystemLogQuery extends PageQuery {
+  level?: string;
+  module?: string;
+  keyword?: string;
+}
+
+// 获取系统运行日志列表API
+export const getSystemLogList = async (params: SystemLogQuery) => {
+  return get<SystemLog[]>('/log/system/list', params);
+};
+
+// 获取最新系统运行日志API（仪表盘）
+export const getLatestSystemLog = async (limit: number = 10) => {
+  return get<SystemLog[]>('/log/system/latest', { limit });
+};
+
+// 获取升级记录列表API
+export interface UpgradeRecord {
+  uuid: string;
+  version: string;
+  previousVersion: string;
+  upgradeType: string;
+  status: string;
+  upgradeTime: number;
+  serverIp: string;
+  hostname: string;
+  operator: string;
+  description: string;
+  errorMessage: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const getUpgradeRecordList = async (params: PageQuery) => {
+  return get<UpgradeRecord[]>('/log/upgrade/list', params);
 };
 
 // 生成安装命令API
@@ -254,7 +300,9 @@ export default {
   getRunningLogList,
   getOperationLogList,
   getAccessLogList,
-  getAuditLogList,
+  getSystemLogList,
+  getLatestSystemLog,
+  getUpgradeRecordList,
   generateInstallCommand,
   downloadInstaller,
   uploadFile,

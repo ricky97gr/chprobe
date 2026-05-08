@@ -98,17 +98,7 @@
         <a-form-item
           name="confirmPassword"
           label="确认密码"
-          :rules="[
-            { required: true, message: '请再次输入新密码' },
-            {
-              validator: (_, value) => {
-                if (!value || passwordForm.newPassword === value) {
-                  return Promise.resolve()
-                }
-                return Promise.reject(new Error('两次输入的密码不一致'))
-              }
-            }
-          ]"
+          :rules="confirmPasswordRules"
         >
           <a-input-password v-model:value="passwordForm.confirmPassword" placeholder="请再次输入新密码" />
         </a-form-item>
@@ -137,6 +127,18 @@ const passwordForm = reactive({
   newPassword: '',
   confirmPassword: ''
 })
+
+const confirmPasswordRules = [
+  { required: true, message: '请再次输入新密码' },
+  {
+    validator: (_rule: any, value: string) => {
+      if (!value || passwordForm.newPassword === value) {
+        return Promise.resolve()
+      }
+      return Promise.reject(new Error('两次输入的密码不一致'))
+    }
+  }
+]
 
 const validatePasswordForm = () => {
   return passwordForm.oldPassword && 
@@ -168,7 +170,7 @@ const handleSubmit = async () => {
     }
     
     // 检查用户是否首次登录
-    if (result.user.isFirstLogin) {
+    if ((result.user as any).isFirstLogin) {
       // 显示强制修改密码模态框
       changePasswordModalVisible.value = true
     } else {

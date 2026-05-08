@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
@@ -36,6 +37,7 @@ func Logger() gin.HandlerFunc {
 			}
 
 			accessLog := models.AccessLog{
+				UUID:         uuid.New().String(),
 				Path:         path,
 				Method:       method,
 				IP:           host,

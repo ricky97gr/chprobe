@@ -326,7 +326,7 @@ const upgradeClient = async (uuid: string) => {
 
 const uninstallClient = async (uuid: string) => {
   try {
-    await deleteAgent({ uuid })
+    await deleteAgent(uuid)
     message.success('客户端卸载成功')
     fetchAgentList()
   } catch (error: any) {

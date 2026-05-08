@@ -35,7 +35,7 @@
         <template v-for="plugin in pluginMenuItems" :key="plugin.path">
           <a-menu-item>
             <template #icon>
-              <component :is="getIcon(plugin.meta?.icon)" />
+              <component :is="getIcon(plugin.meta?.icon as string)" />
             </template>
             <span>{{ plugin.meta?.title }}</span>
           </a-menu-item>
@@ -44,7 +44,7 @@
         <template v-for="menu in menuRoutes" :key="menu.path">
           <a-sub-menu v-if="menu.children && menu.children.length > 0" :key="menu.path">
             <template #icon>
-              <component :is="getIcon(menu.meta?.icon)" />
+              <component :is="getIcon(menu.meta?.icon as string)" />
             </template>
             <template #title>
               <span>{{ menu.meta?.title }}</span>
@@ -55,7 +55,7 @@
           </a-sub-menu>
           <a-menu-item v-else :key="`/${menu.path}`">
             <template #icon>
-              <component :is="getIcon(menu.meta?.icon)" />
+              <component :is="getIcon(menu.meta?.icon as string)" />
             </template>
             <span>{{ menu.meta?.title }}</span>
           </a-menu-item>
