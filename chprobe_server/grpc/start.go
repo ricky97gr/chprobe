@@ -21,6 +21,14 @@ func (s *reportServer) ReportToServer(ctx context.Context, msg *proto.MessageInf
 	switch msg.MessageType {
 	case int32(constant.MessageHeartbeat):
 		// 处理心跳消息
+		err := handler.HandleHeartbeat(msg.Client)
+		if err != nil {
+			utils.Logger.Errorf("handle heartbeat failed, err: %v\n", err)
+			return &proto.Response{
+				Success: false,
+				Result:  "",
+			}, nil
+		}
 	case int32(constant.MessageRegister):
 		// 处理注册消息
 		uuid, err := handler.HandleRegister(msg.Data)

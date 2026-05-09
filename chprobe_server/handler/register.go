@@ -81,6 +81,33 @@ func HandleRegister(data []byte) (string, error) {
 	return clientUUID, nil
 }
 
+func HandleHeartbeat(clientUUID string) error {
+	db, err := database.GetMysqlClient()
+	if err != nil {
+		utils.Logger.Errorf("failed to get mysql client, err: %v\n", err)
+		return err
+	}
+
+	var agent models.Agent
+	result := db.Where("uuid = ?", clientUUID).First(&agent)
+	if result.Error != nil {
+		utils.Logger.Errorf("agent not found with UUID: %s\n", clientUUID)
+		return result.Error
+	}
+
+	now := time.Now().UnixMilli()
+	agent.LastHeartTime = now
+	agent.Status = "online"
+
+	if err := db.Save(&agent).Error; err != nil {
+		utils.Logger.Errorf("update agent heartbeat failed, err: %v\n", err)
+		return err
+	}
+
+	utils.Logger.Debugf("heartbeat received from agent: %s, status set to online\n", clientUUID)
+	return nil
+}
+
 func generateUUID(machineID string) string {
 	// 基于machineID生成UUID，确保同一台机器生成的UUID相同
 	if machineID == "" {

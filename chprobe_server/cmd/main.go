@@ -6,6 +6,7 @@ import (
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
 	"github.com/ricky97gr/chprobe/chprobe_server/grpc"
+	"github.com/ricky97gr/chprobe/chprobe_server/heartbeat"
 	"github.com/ricky97gr/chprobe/chprobe_server/router"
 	"github.com/ricky97gr/chprobe/chprobe_server/serverinfo"
 	syslog "github.com/ricky97gr/chprobe/chprobe_server/utils"
@@ -39,6 +40,10 @@ func main() {
 
 	// 记录服务启动日志
 	syslog.LogInfo(syslog.ModuleSystem, "ChProbe 服务启动成功")
+
+	// 启动Agent心跳监控
+	heartbeat.StartMonitor()
+	syslog.LogInfo(syslog.ModuleSystem, "Agent心跳监控已启动，10分钟超时")
 
 	// 并行启动gRPC服务和web服务
 	go grpc.Start()
