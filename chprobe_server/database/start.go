@@ -44,9 +44,6 @@ func Start() {
 
 	// 检查是否存在默认用户，如果不存在则创建
 	checkAndCreateDefaultUser(c)
-
-	// 检查是否存在测试插件，如果不存在则创建
-	checkAndCreateTestPlugin(c)
 }
 
 // 检查并创建默认用户
@@ -77,37 +74,4 @@ func checkAndCreateDefaultUser(db *gorm.DB) {
 		return
 	}
 	utils.Logger.Infof("default user already exists, skip creation\n")
-}
-
-// 检查并创建测试插件
-func checkAndCreateTestPlugin(db *gorm.DB) {
-	var count int64
-	db.Model(&models.Plugin{}).Where("plugin_id = ?", "test").Count(&count)
-
-	if count == 0 {
-		// 创建测试插件
-		now := time.Now()
-		testPlugin := models.Plugin{
-			UUID:        "123e4567-e89b-12d3-a456-426614174000",
-			PluginID:    "test",
-			Name:        "Test Plugin",
-			Version:     "1.0.0",
-			Status:      models.PluginStatusDisabled,
-			Description: "A test plugin for chprobe",
-			Author:      "Chprobe",
-			InstallTime: now,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-			MD5:         "d41d8cd98f00b204e9800998ecf8427e",
-		}
-
-		result := db.Create(&testPlugin)
-		if result.Error != nil {
-			utils.Logger.Errorf("failed to create test plugin, err: %+v\n", result.Error)
-			return
-		}
-		utils.Logger.Infof("test plugin created successfully: %s\n", testPlugin.PluginID)
-		return
-	}
-	utils.Logger.Infof("test plugin already exists, skip creation\n")
 }

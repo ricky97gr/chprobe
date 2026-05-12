@@ -594,7 +594,7 @@ const installPlugin = async (pluginId: string) => {
     // 通过后端API创建下载任务
     const createTaskResponse = await api.post('/plugin/download/task', {
       uuid: plugin.uuid,
-      pluginId: plugin.pluginId,
+      pluginId: plugin.uuid,
       pluginName: plugin.name,
       version: plugin.version,
       author: plugin.author,

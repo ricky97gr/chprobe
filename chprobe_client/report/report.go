@@ -1,44 +1,33 @@
 package report
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
 	"github.com/ricky97gr/chprobe/chprobe_client/conf"
+	"github.com/ricky97gr/chprobe/chprobe_client/task"
 	"github.com/ricky97gr/chprobe/chprobe_common/constant"
 	"github.com/ricky97gr/chprobe/chprobe_common/proto"
 	"github.com/ricky97gr/chprobe/chprobe_common/typed"
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
-	"google.golang.org/grpc"
 )
 
 func ReportMessageToServer(messageType int, data []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	serverAddr := conf.GetServerAddr()
-	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
-	if err != nil {
-		utils.Logger.Errorf("failed to get conn from endpoint[%s], err info: %+v\n", serverAddr, err)
-		return err
+	st := task.GetStream()
+	if st == nil {
+		utils.Logger.Warnf("task stream not ready, skip report\n")
+		return nil
 	}
-	defer conn.Close()
-	client := proto.NewReporterClient(conn)
 	info := &proto.MessageInfo{
-		Client:      "chprobe",
+		Client:      conf.GetUUID(),
 		MessageType: int32(messageType),
 		ReportTime:  time.Now().UnixMilli(),
 		Data:        data,
 	}
-	_, err = client.ReportToServer(ctx, info)
-	if err != nil {
-		return err
-	}
-	return nil
+	return st.Send(info)
 }
 
 func RegisterClient() string {
-	// 收集客户端信息
 	clientInfo := typed.ClientRegisterInfo{
 		ClientType:    "chprobe",
 		Hostname:      getHostname(),
@@ -58,35 +47,23 @@ func RegisterClient() string {
 		return ""
 	}
 
-	// 向服务器发送注册请求
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	serverAddr := conf.GetServerAddr()
-	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
-	if err != nil {
-		utils.Logger.Errorf("failed to get conn from endpoint[%s], err info: %+v\n", serverAddr, err)
+	st := task.GetStream()
+	if st == nil {
+		utils.Logger.Warnf("task stream not ready for register")
 		return ""
 	}
-	defer conn.Close()
-	client := proto.NewReporterClient(conn)
+
 	info := &proto.MessageInfo{
 		Client:      "chprobe",
 		MessageType: int32(constant.MessageRegister),
 		ReportTime:  time.Now().UnixMilli(),
 		Data:        data,
 	}
-
-	// 接收服务器返回的UUID
-	response, err := client.ReportToServer(ctx, info)
+	err = st.Send(info)
 	if err != nil {
-		utils.Logger.Errorf("register client failed, err: %v\n", err)
+		utils.Logger.Errorf("send register failed, err: %v\n", err)
 		return ""
 	}
-
-	if response != nil && response.Result != "" {
-		return response.Result
-	}
-
 	return ""
 }
 

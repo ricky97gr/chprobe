@@ -1,14 +1,15 @@
 package grpc
 
 import (
-	"context"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/ricky97gr/chprobe/chprobe_common/constant"
 	"github.com/ricky97gr/chprobe/chprobe_common/proto"
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	"github.com/ricky97gr/chprobe/chprobe_server/handler"
+	"github.com/ricky97gr/chprobe/chprobe_server/task"
 	"google.golang.org/grpc"
 )
 
@@ -16,39 +17,55 @@ type reportServer struct {
 	proto.UnimplementedReporterServer
 }
 
-func (s *reportServer) ReportToServer(ctx context.Context, msg *proto.MessageInfo) (*proto.Response, error) {
-	utils.Logger.Infof("receive client %s, message: %+v", msg.Client, msg)
-	switch msg.MessageType {
-	case int32(constant.MessageHeartbeat):
-		// 处理心跳消息
-		err := handler.HandleHeartbeat(msg.Client)
-		if err != nil {
-			utils.Logger.Errorf("handle heartbeat failed, err: %v\n", err)
-			return &proto.Response{
-				Success: false,
-				Result:  "",
-			}, nil
+func (s *reportServer) ReportToServer(stream grpc.BidiStreamingServer[proto.MessageInfo, proto.ServerMessage]) error {
+	var clientUUID string
+	sendChan := make(chan *proto.ServerMessage, 100)
+	defer func() {
+		if clientUUID != "" {
+			task.GlobalStreamManager.Unregister(clientUUID)
 		}
-	case int32(constant.MessageRegister):
-		// 处理注册消息
-		uuid, err := handler.HandleRegister(msg.Data)
-		if err != nil {
-			utils.Logger.Errorf("handle register failed, err: %v\n", err)
-			return &proto.Response{
-				Success: false,
-				Result:  "",
-			}, nil
+		close(sendChan)
+	}()
+
+	go func() {
+		for {
+			taskMsg, ok := <-sendChan
+			if !ok {
+				return
+			}
+			if err := stream.Send(taskMsg); err != nil {
+				utils.Logger.Errorf("send task to client %s failed: %v\n", clientUUID, err)
+				return
+			}
 		}
-		return &proto.Response{
-			Success: true,
-			Result:  uuid,
-		}, nil
-	default:
-		utils.Logger.Warnf("unknown message type: %d", msg.MessageType)
+	}()
+
+	for {
+		agentMsg, err := stream.Recv()
+		if err == io.EOF {
+			utils.Logger.Infof("client task stream closed by client\n")
+			return nil
+		}
+		if err != nil {
+			utils.Logger.Errorf("receive from client task stream error: %v\n", err)
+			return err
+		}
+
+		if clientUUID == "" {
+			clientUUID = agentMsg.Client
+			task.GlobalStreamManager.Register(clientUUID, sendChan)
+			utils.Logger.Infof("client %s task stream established\n", clientUUID)
+		}
+
+		switch agentMsg.MessageType {
+		case int32(constant.MessageHeartbeat):
+			_ = handler.HandleHeartbeat(agentMsg.Client)
+		case int32(constant.MessageRegister):
+			utils.Logger.Infof("receive register from client: %s\n", agentMsg.Client)
+		}
+
+		utils.Logger.Infof("receive from client %s, type=%d\n", clientUUID, agentMsg.MessageType)
 	}
-	return &proto.Response{
-		Success: true,
-	}, nil
 }
 
 func Start() {

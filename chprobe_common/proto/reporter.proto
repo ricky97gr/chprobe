@@ -5,7 +5,7 @@ package reporter;
 option go_package="./;proto";
 
 service Reporter{
-    rpc ReportToServer(MessageInfo) returns(Response){}
+    rpc ReportToServer(stream MessageInfo) returns(stream ServerMessage) {}
 }
 
 message MessageInfo{
@@ -19,4 +19,11 @@ message Response{
     bool Success = 1;
     string Result = 2;
     int32 DataLength =3;
+}
+
+message ServerMessage{
+    string TaskID = 1;
+    int32 TaskType = 2;
+    int64 Timestamp = 3;
+    bytes Data = 4;
 }

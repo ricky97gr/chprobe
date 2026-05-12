@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
 	"github.com/ricky97gr/chprobe/chprobe_server/models"
 	"github.com/ricky97gr/chprobe/chprobe_server/response"
@@ -285,53 +286,113 @@ func CreateDownloadTask(c *gin.Context) {
 		return
 	}
 
-	// 异步开始下载
-	go func() {
-		// 模拟下载进度
-		for i := 0; i <= 100; i += 10 {
-			time.Sleep(3 * time.Second)
-			if task, exists := downloadTasks[taskId]; exists {
-				task["progress"] = float64(i) / 100.0
-				task["updatedAt"] = time.Now()
-				downloadTasks[taskId] = task
-			}
-		}
+	// 初始化任务状态
+	downloadTasks[taskId] = map[string]interface{}{
+		"taskId":    taskId,
+		"status":    "downloading",
+		"progress":  0.0,
+		"baseUrl":   baseUrl,
+		"pluginId":  requestData.PluginID,
+		"updatedAt": time.Now(),
+	}
 
-		// 下载完成
-		if task, exists := downloadTasks[taskId]; exists {
-			task["status"] = "completed"
-			task["progress"] = 1.0
-			task["updatedAt"] = time.Now()
-			downloadTasks[taskId] = task
-
-			// 安装插件
-			db, err := database.GetMysqlClient()
-			if err == nil {
-				// 检查插件是否已安装
-				var existingPlugin models.Plugin
-				result := db.Where("plugin_id = ?", requestData.PluginID).First(&existingPlugin)
-				if result.Error != nil {
-					// 创建新插件记录，初始状态为待启用
-					plugin := models.Plugin{
-						UUID:        requestData.UUID,
-						PluginID:    requestData.PluginID,
-						Name:        requestData.PluginName,
-						Version:     requestData.Version,
-						Status:      models.PluginStatusPending, // 待启用
-						Description: requestData.Description,
-						Author:      requestData.Author,
-						InstallTime: time.Now(),
-						CreatedAt:   time.Now(),
-						UpdatedAt:   time.Now(),
-					}
-					db.Create(&plugin)
-				}
-			}
-		}
-	}()
-
+	// 从DownloadUrl中提取真实的下载地址（这里简化处理，实际插件市场应该直接提供下载url）
+	// 先直接异步调用下载函数去下载zip包
+	pluginDownloadUrl := requestData.DownloadUrl
+	utils.Logger.Infof("开始异步下载插件zip包, taskId=%s, pluginId=%s, downloadUrl=%s\n", taskId, requestData.PluginID, pluginDownloadUrl)
+	go downloadPluginZipFromMarket(pluginDownloadUrl, taskId)
 	// 返回任务id给前端
 	response.Success(c, gin.H{"taskId": taskId}, 0)
+}
+
+// queryPluginMarketProgress 真实向插件市场查询任务进度
+func queryPluginMarketProgress(baseUrl string, taskId string) (float64, string) {
+	requestBody := struct {
+		TaskID string `json:"taskId"`
+	}{
+		TaskID: taskId,
+	}
+
+	requestBodyBytes, _ := json.Marshal(requestBody)
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	req, err := http.NewRequest("POST", baseUrl+"/download/progress", bytes.NewBuffer(requestBodyBytes))
+	if err != nil {
+		return 0.0, "downloading"
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0.33, "downloading"
+	}
+	defer resp.Body.Close()
+
+	var marketResp struct {
+		Code        int     `json:"code"`
+		Msg         string  `json:"msg"`
+		Progress    float64 `json:"progress"`
+		Status      string  `json:"status"`
+		DownloadUrl string  `json:"downloadUrl"`
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(bodyBytes, &marketResp)
+
+	if marketResp.Status != "" {
+		return marketResp.Progress, marketResp.Status
+	}
+	if marketResp.Progress > 0 {
+		return marketResp.Progress, "downloading"
+	}
+	return 0.9, "downloading"
+}
+
+// downloadPluginZipFromMarket 从插件市场真实下载zip包到本地
+func downloadPluginZipFromMarket(downloadUrl string, taskId string) error {
+	// 先从内存map里取对应的pluginId
+	var pluginId string
+	if taskInfo, exists := downloadTasks[taskId]; exists {
+		pluginId, _ = taskInfo["pluginId"].(string)
+	}
+	if pluginId == "" {
+		pluginId = "plugin-" + taskId[:8]
+	}
+
+	utils.Logger.Infof("开始从插件市场下载zip包, taskId=%s, pluginId=%s, downloadUrl=%s\n", taskId, pluginId, downloadUrl)
+
+	// 创建目录
+	targetDir := filepath.Join("/opt/chprobe/plugins", pluginId)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		utils.Logger.Errorf("创建插件目录失败, taskId=%s, targetDir=%s, err=%v\n", taskId, targetDir, err)
+		return err
+	}
+	targetZipPath := filepath.Join(targetDir, pluginId+".zip")
+	utils.Logger.Infof("插件zip保存路径, taskId=%s, targetZipPath=%s\n", taskId, targetZipPath)
+
+	client := &http.Client{Timeout: 300 * time.Second}
+	resp, err := client.Get(downloadUrl)
+	if err != nil {
+		utils.Logger.Errorf("从插件市场下载失败, taskId=%s, err=%v\n", taskId, err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	outFile, err := os.Create(targetZipPath)
+	if err != nil {
+		utils.Logger.Errorf("创建本地zip文件失败, taskId=%s, targetZipPath=%s, err=%v\n", taskId, targetZipPath, err)
+		return err
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(outFile, resp.Body)
+	if err != nil {
+		utils.Logger.Errorf("写入zip文件失败, taskId=%s, err=%v\n", taskId, err)
+		return err
+	}
+
+	utils.Logger.Infof("插件zip包下载完成, taskId=%s, pluginId=%s, targetZipPath=%s\n", taskId, pluginId, targetZipPath)
+	return nil
 }
 
 // GetDownloadStatus 获取下载任务状态
@@ -342,20 +403,48 @@ func GetDownloadStatus(c *gin.Context) {
 		return
 	}
 
-	// 查询任务状态
 	taskInfo, exists := downloadTasks[taskId]
 	if !exists {
 		response.Failed(c, response.ErrRecordNotFound, "任务不存在")
 		return
 	}
 
-	// 向插件市场查询最新进度
+	// 立即向插件市场查询一次最新进度
 	if baseUrl, ok := taskInfo["baseUrl"].(string); ok && baseUrl != "" {
-		// 实际应该向插件市场发起请求，查询进度
-		// 这里简化处理，使用本地模拟的进度
+		newProgress, newStatus := queryPluginMarketProgress(baseUrl, taskId)
+		taskInfo["progress"] = newProgress
+		taskInfo["status"] = newStatus
+		taskInfo["updatedAt"] = time.Now()
+		downloadTasks[taskId] = taskInfo
 	}
 
 	response.Success(c, taskInfo, 0)
+}
+
+// DownloadFile 下载插件zip文件接口
+func DownloadFile(c *gin.Context) {
+	taskUUID := c.Query("taskId")
+	if taskUUID == "" {
+		response.Failed(c, response.ErrStruct, "taskId不能为空")
+		return
+	}
+
+	// 从内存任务map找对应的pluginId
+	var pluginId string
+	if taskInfo, exists := downloadTasks[taskUUID]; exists {
+		pluginId, _ = taskInfo["pluginId"].(string)
+	}
+	if pluginId == "" {
+		pluginId = "plugin-" + taskUUID[:8]
+	}
+
+	zipPath := filepath.Join("/opt/chprobe/plugins", pluginId, pluginId+".zip")
+	if _, err := os.Stat(zipPath); os.IsNotExist(err) {
+		response.Failed(c, response.ErrRecordNotFound, "插件文件不存在")
+		return
+	}
+
+	c.FileAttachment(zipPath, pluginId+".zip")
 }
 
 // createPluginMarketTask 向插件市场发起校验请求，获取任务id
@@ -414,7 +503,7 @@ func createPluginMarketTask(baseUrl string, pluginId string, licStr string) (str
 	}
 
 	// 检查响应状态
-	if response.Code != 0 {
+	if response.Code != 200 {
 		return "", fmt.Errorf("plugin market returned error: %s", response.Msg)
 	}
 

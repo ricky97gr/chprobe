@@ -26,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ReporterClient interface {
-	ReportToServer(ctx context.Context, in *MessageInfo, opts ...grpc.CallOption) (*Response, error)
+	ReportToServer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[MessageInfo, ServerMessage], error)
 }
 
 type reporterClient struct {
@@ -37,21 +37,24 @@ func NewReporterClient(cc grpc.ClientConnInterface) ReporterClient {
 	return &reporterClient{cc}
 }
 
-func (c *reporterClient) ReportToServer(ctx context.Context, in *MessageInfo, opts ...grpc.CallOption) (*Response, error) {
+func (c *reporterClient) ReportToServer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[MessageInfo, ServerMessage], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Response)
-	err := c.cc.Invoke(ctx, Reporter_ReportToServer_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Reporter_ServiceDesc.Streams[0], Reporter_ReportToServer_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[MessageInfo, ServerMessage]{ClientStream: stream}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Reporter_ReportToServerClient = grpc.BidiStreamingClient[MessageInfo, ServerMessage]
 
 // ReporterServer is the server API for Reporter service.
 // All implementations must embed UnimplementedReporterServer
 // for forward compatibility.
 type ReporterServer interface {
-	ReportToServer(context.Context, *MessageInfo) (*Response, error)
+	ReportToServer(grpc.BidiStreamingServer[MessageInfo, ServerMessage]) error
 	mustEmbedUnimplementedReporterServer()
 }
 
@@ -62,8 +65,8 @@ type ReporterServer interface {
 // pointer dereference when methods are called.
 type UnimplementedReporterServer struct{}
 
-func (UnimplementedReporterServer) ReportToServer(context.Context, *MessageInfo) (*Response, error) {
-	return nil, status.Error(codes.Unimplemented, "method ReportToServer not implemented")
+func (UnimplementedReporterServer) ReportToServer(grpc.BidiStreamingServer[MessageInfo, ServerMessage]) error {
+	return status.Error(codes.Unimplemented, "method ReportToServer not implemented")
 }
 func (UnimplementedReporterServer) mustEmbedUnimplementedReporterServer() {}
 func (UnimplementedReporterServer) testEmbeddedByValue()                  {}
@@ -86,23 +89,12 @@ func RegisterReporterServer(s grpc.ServiceRegistrar, srv ReporterServer) {
 	s.RegisterService(&Reporter_ServiceDesc, srv)
 }
 
-func _Reporter_ReportToServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MessageInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReporterServer).ReportToServer(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Reporter_ReportToServer_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReporterServer).ReportToServer(ctx, req.(*MessageInfo))
-	}
-	return interceptor(ctx, in, info, handler)
+func _Reporter_ReportToServer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ReporterServer).ReportToServer(&grpc.GenericServerStream[MessageInfo, ServerMessage]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Reporter_ReportToServerServer = grpc.BidiStreamingServer[MessageInfo, ServerMessage]
 
 // Reporter_ServiceDesc is the grpc.ServiceDesc for Reporter service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -110,12 +102,14 @@ func _Reporter_ReportToServer_Handler(srv interface{}, ctx context.Context, dec 
 var Reporter_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "reporter.Reporter",
 	HandlerType: (*ReporterServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "ReportToServer",
-			Handler:    _Reporter_ReportToServer_Handler,
+			StreamName:    "ReportToServer",
+			Handler:       _Reporter_ReportToServer_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "reporter.proto",
 }

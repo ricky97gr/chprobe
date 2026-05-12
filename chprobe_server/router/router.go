@@ -30,6 +30,12 @@ func Start() {
 		api.GET("/install", controller.GenerateInstallCommand)
 		// 下载安装包
 		api.GET("/download/:filename", controller.DownloadInstaller)
+		// 插件下载（无token，agent校验+限速）
+		api.GET("/plugin/download/:pluginId", controller.DownloadPlugin)
+		// 查询下载任务状态（无token）
+		api.GET("/download/status/:taskId", controller.GetDownloadStatus)
+		// 下载插件文件（无token）
+		api.GET("/download/file", controller.DownloadFile)
 		// 登录
 		api.POST("/login", controller.Login)
 
@@ -134,7 +140,7 @@ func Start() {
 				plugin.POST("/update-status", controller.UpdatePluginStatus)
 				// 创建下载任务
 				plugin.POST("/download/task", controller.CreateDownloadTask)
-				// 查询下载进度
+				// 查询下载进度（兼容旧路径）
 				plugin.GET("/download/status/:taskId", controller.GetDownloadStatus)
 			}
 

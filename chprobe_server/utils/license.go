@@ -10,12 +10,35 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 )
 
 var publicKey *rsa.PublicKey
 
 func InitRSA() error {
-	publicKeyBytes, err := os.ReadFile("./utils/public.pem")
+	searchPaths := []string{
+		"./utils/public.pem",
+		"./public.pem",
+		"/opt/chprobe/etc/public.pem",
+	}
+
+	var foundPath string
+	for _, p := range searchPaths {
+		if _, err := os.Stat(p); err == nil {
+			foundPath = p
+			break
+		}
+	}
+
+	if foundPath == "" {
+		abs, _ := filepath.Abs(".")
+		utils.Logger.Warnf("public.pem not found in search paths, working dir: %s\n", abs)
+		return fmt.Errorf("public key file not found")
+	}
+
+	publicKeyBytes, err := os.ReadFile(foundPath)
 	if err != nil {
 		return fmt.Errorf("failed to read public key file: %w", err)
 	}
@@ -36,14 +59,15 @@ func InitRSA() error {
 	}
 
 	publicKey = publicKeyRSA
-
+	utils.Logger.Infof("RSA public key loaded from %s\n", foundPath)
 	return nil
 }
 
 func VerifyLicenseString(licenseString string) (map[string]interface{}, bool, error) {
-	InitRSA()
 	if publicKey == nil {
-		return nil, false, fmt.Errorf("RSA public key not initialized")
+		if err := InitRSA(); err != nil {
+			return nil, false, fmt.Errorf("RSA public key not initialized: %w", err)
+		}
 	}
 
 	payloadBytes, err := base64.StdEncoding.DecodeString(licenseString)

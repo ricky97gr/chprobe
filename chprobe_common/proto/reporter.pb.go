@@ -149,6 +149,74 @@ func (x *Response) GetDataLength() int32 {
 	return 0
 }
 
+type ServerMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskID        string                 `protobuf:"bytes,1,opt,name=TaskID,proto3" json:"TaskID,omitempty"`
+	TaskType      int32                  `protobuf:"varint,2,opt,name=TaskType,proto3" json:"TaskType,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,3,opt,name=Timestamp,proto3" json:"Timestamp,omitempty"`
+	Data          []byte                 `protobuf:"bytes,4,opt,name=Data,proto3" json:"Data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerMessage) Reset() {
+	*x = ServerMessage{}
+	mi := &file_reporter_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerMessage) ProtoMessage() {}
+
+func (x *ServerMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_reporter_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
+func (*ServerMessage) Descriptor() ([]byte, []int) {
+	return file_reporter_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ServerMessage) GetTaskID() string {
+	if x != nil {
+		return x.TaskID
+	}
+	return ""
+}
+
+func (x *ServerMessage) GetTaskType() int32 {
+	if x != nil {
+		return x.TaskType
+	}
+	return 0
+}
+
+func (x *ServerMessage) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *ServerMessage) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_reporter_proto protoreflect.FileDescriptor
 
 const file_reporter_proto_rawDesc = "" +
@@ -166,9 +234,14 @@ const file_reporter_proto_rawDesc = "" +
 	"\x06Result\x18\x02 \x01(\tR\x06Result\x12\x1e\n" +
 	"\n" +
 	"DataLength\x18\x03 \x01(\x05R\n" +
-	"DataLength2I\n" +
-	"\bReporter\x12=\n" +
-	"\x0eReportToServer\x12\x15.reporter.MessageInfo\x1a\x12.reporter.Response\"\x00B\n" +
+	"DataLength\"u\n" +
+	"\rServerMessage\x12\x16\n" +
+	"\x06TaskID\x18\x01 \x01(\tR\x06TaskID\x12\x1a\n" +
+	"\bTaskType\x18\x02 \x01(\x05R\bTaskType\x12\x1c\n" +
+	"\tTimestamp\x18\x03 \x01(\x03R\tTimestamp\x12\x12\n" +
+	"\x04Data\x18\x04 \x01(\fR\x04Data2R\n" +
+	"\bReporter\x12F\n" +
+	"\x0eReportToServer\x12\x15.reporter.MessageInfo\x1a\x17.reporter.ServerMessage\"\x00(\x010\x01B\n" +
 	"Z\b./;protob\x06proto3"
 
 var (
@@ -183,14 +256,15 @@ func file_reporter_proto_rawDescGZIP() []byte {
 	return file_reporter_proto_rawDescData
 }
 
-var file_reporter_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_reporter_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_reporter_proto_goTypes = []any{
-	(*MessageInfo)(nil), // 0: reporter.MessageInfo
-	(*Response)(nil),    // 1: reporter.Response
+	(*MessageInfo)(nil),   // 0: reporter.MessageInfo
+	(*Response)(nil),      // 1: reporter.Response
+	(*ServerMessage)(nil), // 2: reporter.ServerMessage
 }
 var file_reporter_proto_depIdxs = []int32{
 	0, // 0: reporter.Reporter.ReportToServer:input_type -> reporter.MessageInfo
-	1, // 1: reporter.Reporter.ReportToServer:output_type -> reporter.Response
+	2, // 1: reporter.Reporter.ReportToServer:output_type -> reporter.ServerMessage
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -209,7 +283,7 @@ func file_reporter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_reporter_proto_rawDesc), len(file_reporter_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
