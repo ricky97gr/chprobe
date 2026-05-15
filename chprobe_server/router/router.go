@@ -34,8 +34,6 @@ func Start() {
 		api.GET("/plugin/download/:pluginId", controller.DownloadPlugin)
 		// 查询下载任务状态（无token）
 		api.GET("/download/status/:taskId", controller.GetDownloadStatus)
-		// 下载插件文件（无token）
-		api.GET("/download/file", controller.DownloadFile)
 		// 登录
 		api.POST("/login", controller.Login)
 

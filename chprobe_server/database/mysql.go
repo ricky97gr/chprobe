@@ -1,8 +1,8 @@
 package database
 
 import (
-	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	conf "github.com/ricky97gr/chprobe/chprobe_server/config"
@@ -10,35 +10,18 @@ import (
 	"gorm.io/gorm"
 )
 
-var mysqlClient *gorm.DB
+var (
+	mysqlClient *gorm.DB
+	initOnce    sync.Once
+)
 
 func GetMysqlClient() (*gorm.DB, error) {
-	if mysqlClient == nil {
-		config, _ := conf.GetConfig()
-		return InitMySql(config.Mysql.IP, config.Mysql.User, config.Mysql.Password, config.Mysql.DB, config.Mysql.Port)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	db, err := mysqlClient.DB()
-	if err != nil {
+	var err error
+	initOnce.Do(func() {
 		config, _ := conf.GetConfig()
 		mysqlClient, err = InitMySql(config.Mysql.IP, config.Mysql.User, config.Mysql.Password, config.Mysql.DB, config.Mysql.Port)
-		if err != nil {
-			return nil, err
-		}
-
-	}
-	err = db.PingContext(ctx)
-	if err != nil {
-		config, _ := conf.GetConfig()
-		mysqlClient, err = InitMySql(config.Mysql.IP, config.Mysql.User, config.Mysql.Password, config.Mysql.DB, config.Mysql.Port)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return mysqlClient, nil
-
+	})
+	return mysqlClient, err
 }
 
 func InitMySql(url, user, passwd, dbName string, port uint16) (*gorm.DB, error) {
@@ -47,19 +30,16 @@ func InitMySql(url, user, passwd, dbName string, port uint16) (*gorm.DB, error) 
 	if err != nil {
 		return nil, err
 	}
-	
-	// 设置连接池参数
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, err
 	}
-	
-	// 设置最大连接数
-	sqlDB.SetMaxOpenConns(20)
-	// 设置最大空闲连接数
-	sqlDB.SetMaxIdleConns(10)
-	// 设置连接的最大生存时间
-	sqlDB.SetConnMaxLifetime(time.Hour)
-	
+
+	sqlDB.SetMaxOpenConns(30)
+	sqlDB.SetMaxIdleConns(15)
+	sqlDB.SetConnMaxLifetime(1 * time.Hour)
+	sqlDB.SetConnMaxIdleTime(30 * time.Minute)
+
 	return db, nil
 }

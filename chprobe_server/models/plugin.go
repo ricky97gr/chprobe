@@ -26,6 +26,7 @@ const (
 	PluginStatusDisabled    = "disabled"    // 已停用
 	PluginStatusUpdating    = "updating"    // 更新中
 	PluginStatusDeleting    = "deleting"    // 删除中
+	PluginStatusFailed      = "failed"      // 失败
 )
 
 func (Plugin) TableName() string {

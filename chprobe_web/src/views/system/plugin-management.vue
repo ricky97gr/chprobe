@@ -307,6 +307,10 @@ const syncMarketPlugins = async () => {
         uploadTime: item.uploadedAt || item.createTime || '',
         downloadUrl: item.downloadUrl || ''
       }))
+      
+      // 同时获取"我的插件"列表，用于判断哪些插件已下载
+      await getMyPlugins()
+      
       message.success('同步成功')
     } else {
       message.warning('同步失败：返回数据格式不正确')
@@ -321,7 +325,6 @@ const syncMarketPlugins = async () => {
 
 // 我的插件相关数据
 const myPluginColumns = [
-  { title: '插件ID', dataIndex: 'pluginId', key: 'pluginId' },
   { title: '插件名称', dataIndex: 'name', key: 'name' },
   { title: '版本', dataIndex: 'version', key: 'version' },
   { title: '状态', dataIndex: 'status', key: 'status' },
@@ -419,6 +422,7 @@ const startPlugin = async (pluginId: string) => {
     const plugin = myPlugins.value.find(p => p.pluginId === pluginId)
     if (plugin) {
       plugin.loading = true
+      plugin.status = 'enabling'
     }
     
     await api.post('/plugin-manager/start', {
@@ -429,10 +433,11 @@ const startPlugin = async (pluginId: string) => {
     })
     
     message.success('插件启动成功')
-    // 重新加载整个页面
-    window.location.reload()
+    await getMyPlugins()
   } catch (error: any) {
     message.error('插件启动失败: ' + error.message)
+    await getMyPlugins()
+  } finally {
     const plugin = myPlugins.value.find(p => p.pluginId === pluginId)
     if (plugin) {
       plugin.loading = false
@@ -446,6 +451,7 @@ const stopPlugin = async (pluginId: string) => {
     const plugin = myPlugins.value.find(p => p.pluginId === pluginId)
     if (plugin) {
       plugin.loading = true
+      plugin.status = 'disabling'
     }
     
     await api.post('/plugin-manager/stop', {
@@ -453,10 +459,11 @@ const stopPlugin = async (pluginId: string) => {
     })
     
     message.success('插件停止成功')
-    // 重新加载整个页面
-    window.location.reload()
+    await getMyPlugins()
   } catch (error: any) {
     message.error('插件停止失败: ' + error.message)
+    await getMyPlugins()
+  } finally {
     const plugin = myPlugins.value.find(p => p.pluginId === pluginId)
     if (plugin) {
       plugin.loading = false
@@ -538,12 +545,19 @@ const healthCheck = async (pluginId: string) => {
 // 根据插件状态返回对应的颜色
 const getStatusColor = (status: string) => {
   switch (status) {
+    case 'enabled':
     case 'running':
       return 'green';
+    case 'disabled':
     case 'stopped':
       return 'red';
-    case 'disabled':
-      return 'gray';
+    case 'pending':
+      return 'orange';
+    case 'enabling':
+    case 'disabling':
+      return 'blue';
+    case 'failed':
+      return 'purple';
     default:
       return 'gray';
   }
@@ -552,12 +566,20 @@ const getStatusColor = (status: string) => {
 // 根据插件状态返回对应的文本
 const getStatusText = (status: string) => {
   switch (status) {
+    case 'enabled':
     case 'running':
       return '运行中';
-    case 'stopped':
-      return '已停止';
     case 'disabled':
-      return '已禁用';
+    case 'stopped':
+      return '已停用';
+    case 'pending':
+      return '待启用';
+    case 'enabling':
+      return '启用中';
+    case 'disabling':
+      return '停用中';
+    case 'failed':
+      return '失败';
     default:
       return '未知状态';
   }

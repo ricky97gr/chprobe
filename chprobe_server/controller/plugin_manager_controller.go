@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"archive/zip"
 	"context"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/ricky97gr/chprobe/chprobe_common/utils"
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
 	"github.com/ricky97gr/chprobe/chprobe_server/models"
 	"github.com/ricky97gr/chprobe/chprobe_server/pluginmanager"
@@ -62,6 +65,64 @@ type ForwardRequestRequest struct {
 	Headers  map[string]string      `json:"headers"`
 }
 
+// unzipPlugin 解压插件zip文件到指定目录
+func unzipPlugin(zipPath string, destDir string) error {
+	// 确保目标目录存在
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	// 打开zip文件
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	// 解压每个文件
+	for _, f := range r.File {
+		fpath := filepath.Join(destDir, f.Name)
+
+		// 检查路径遍历攻击
+		if !filepath.HasPrefix(fpath, filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return os.ErrInvalid
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		// 创建文件目录
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		// 创建文件
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		// 复制文件内容
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+		rc.Close()
+		outFile.Close()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func StartPlugin(c *gin.Context) {
 	var req StartPluginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -69,12 +130,24 @@ func StartPlugin(c *gin.Context) {
 		return
 	}
 
-	ctx := context.Background()
+	// 插件目录路径
+	pluginBaseDir := "/opt/chprobe/plugins"
+	pluginDestDir := filepath.Join(pluginBaseDir, req.PluginID)
+	pluginZipPath := filepath.Join(pluginDestDir, req.PluginID+".zip")
 
-	managedPlugin, err := pluginManager.StartPlugin(ctx, req.PluginID, req.Command, req.Args, req.Config)
-	if err != nil {
-		response.Failed(c, response.ErrDB, "Failed to start plugin: "+err.Error())
-		return
+	// 检查zip文件是否存在，如果存在则解压
+	if _, err := os.Stat(pluginZipPath); err == nil {
+		// 检查是否已经解压过
+		binaryPath := filepath.Join(pluginDestDir, "plugin")
+		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+			// 需要解压
+			utils.Logger.Infof("开始解压插件zip文件, pluginId=%s, zipPath=%s, destDir=%s", req.PluginID, pluginZipPath, pluginDestDir)
+			if err := unzipPlugin(pluginZipPath, pluginDestDir); err != nil {
+				response.Failed(c, response.ErrDB, "Failed to unzip plugin: "+err.Error())
+				return
+			}
+			utils.Logger.Infof("插件zip文件解压成功, pluginId=%s", req.PluginID)
+		}
 	}
 
 	db, err := database.GetMysqlClient()
@@ -90,6 +163,27 @@ func StartPlugin(c *gin.Context) {
 		return
 	}
 
+	// 更新状态为启用中
+	plugin.Status = models.PluginStatusEnabling
+	plugin.UpdatedAt = time.Now()
+	if err := db.Save(&plugin).Error; err != nil {
+		response.Failed(c, response.ErrDB, "Failed to update plugin status: "+err.Error())
+		return
+	}
+
+	ctx := context.Background()
+
+	managedPlugin, err := pluginManager.StartPlugin(ctx, req.PluginID, req.Command, req.Args, req.Config)
+	if err != nil {
+		// 启动失败，更新状态为失败
+		plugin.Status = models.PluginStatusFailed
+		plugin.UpdatedAt = time.Now()
+		db.Save(&plugin) // 忽略保存错误
+		response.Failed(c, response.ErrDB, "Failed to start plugin: "+err.Error())
+		return
+	}
+
+	// 启动成功，更新状态为已启用
 	plugin.Status = models.PluginStatusEnabled
 	plugin.UpdatedAt = time.Now()
 	if err := db.Save(&plugin).Error; err != nil {
@@ -107,11 +201,6 @@ func StopPlugin(c *gin.Context) {
 		return
 	}
 
-	if err := pluginManager.StopPlugin(req.PluginID); err != nil {
-		response.Failed(c, response.ErrDB, "Failed to stop plugin: "+err.Error())
-		return
-	}
-
 	db, err := database.GetMysqlClient()
 	if err != nil {
 		response.Failed(c, response.ErrDB, "数据库连接失败")
@@ -125,6 +214,24 @@ func StopPlugin(c *gin.Context) {
 		return
 	}
 
+	// 更新状态为停用中
+	plugin.Status = models.PluginStatusDisabling
+	plugin.UpdatedAt = time.Now()
+	if err := db.Save(&plugin).Error; err != nil {
+		response.Failed(c, response.ErrDB, "Failed to update plugin status: "+err.Error())
+		return
+	}
+
+	if err := pluginManager.StopPlugin(req.PluginID); err != nil {
+		// 停止失败，更新状态为失败
+		plugin.Status = models.PluginStatusFailed
+		plugin.UpdatedAt = time.Now()
+		db.Save(&plugin) // 忽略保存错误
+		response.Failed(c, response.ErrDB, "Failed to stop plugin: "+err.Error())
+		return
+	}
+
+	// 停止成功，更新状态为已停用
 	plugin.Status = models.PluginStatusDisabled
 	plugin.UpdatedAt = time.Now()
 	if err := db.Save(&plugin).Error; err != nil {
