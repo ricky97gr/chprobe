@@ -98,8 +98,13 @@ func unzipPlugin(zipPath string, destDir string) error {
 			return err
 		}
 
-		// 创建文件
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		// 创建文件，确保可执行文件有执行权限
+		fileMode := f.Mode()
+		// 如果是可执行文件（server/agent），确保有执行权限
+		if f.Name == "server" || f.Name == "agent" {
+			fileMode = 0755
+		}
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileMode)
 		if err != nil {
 			return err
 		}
@@ -117,6 +122,13 @@ func unzipPlugin(zipPath string, destDir string) error {
 
 		if err != nil {
 			return err
+		}
+
+		// 额外确保 server 和 agent 文件有执行权限
+		if f.Name == "server" || f.Name == "agent" {
+			if err := os.Chmod(fpath, 0755); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -137,16 +149,16 @@ func StartPlugin(c *gin.Context) {
 
 	// 检查zip文件是否存在，如果存在则解压
 	if _, err := os.Stat(pluginZipPath); err == nil {
-		// 检查是否已经解压过
-		binaryPath := filepath.Join(pluginDestDir, "plugin")
+		// 检查是否已经解压过（插件可执行文件名为 server）
+		binaryPath := filepath.Join(pluginDestDir, "server")
 		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 			// 需要解压
-			utils.Logger.Infof("开始解压插件zip文件, pluginId=%s, zipPath=%s, destDir=%s", req.PluginID, pluginZipPath, pluginDestDir)
+			utils.Logger.Infof("开始解压插件zip文件, pluginId=%s, zipPath=%s, destDir=%s\n", req.PluginID, pluginZipPath, pluginDestDir)
 			if err := unzipPlugin(pluginZipPath, pluginDestDir); err != nil {
 				response.Failed(c, response.ErrDB, "Failed to unzip plugin: "+err.Error())
 				return
 			}
-			utils.Logger.Infof("插件zip文件解压成功, pluginId=%s", req.PluginID)
+			utils.Logger.Infof("插件zip文件解压成功, pluginId=%s\n", req.PluginID)
 		}
 	}
 
@@ -359,6 +371,84 @@ func GetPluginRoutes(c *gin.Context) {
 	}
 
 	response.Success(c, routes, int64(len(routes)))
+}
+
+// GetPluginWebConfig 获取插件前端配置（包含路由和菜单）
+func GetPluginWebConfig(c *gin.Context) {
+	pluginID := c.Query("pluginId")
+	if pluginID == "" {
+		response.Failed(c, response.ErrStruct, "Plugin ID is required")
+		return
+	}
+
+	plugin, exists := pluginManager.GetPlugin(pluginID)
+	if !exists {
+		response.Failed(c, response.ErrRecordNotFound, "Plugin not found or not running")
+		return
+	}
+
+	response.Success(c, gin.H{
+		"pluginId":     pluginID,
+		"name":         plugin.Name,
+		"version":      plugin.Version,
+		"description":  plugin.Description,
+		"webConfig":    plugin.WebConfig,
+		"meta":         plugin.Meta,
+	}, 0)
+}
+
+// GetAllPluginWebConfigs 获取所有已启动插件的前端配置
+func GetAllPluginWebConfigs(c *gin.Context) {
+	runningPlugins := pluginManager.GetAllPlugins()
+	
+	type PluginWebInfo struct {
+		PluginID     string                 `json:"pluginId"`
+		Name         string                 `json:"name"`
+		Version      string                 `json:"version"`
+		Description  string                 `json:"description"`
+		WebConfig    *pluginmanager.PluginWebConfig `json:"webConfig"`
+		Meta         *pluginmanager.PluginMeta      `json:"meta"`
+	}
+
+	var result []PluginWebInfo
+	for _, plugin := range runningPlugins {
+		result = append(result, PluginWebInfo{
+			PluginID:    plugin.ID,
+			Name:        plugin.Name,
+			Version:     plugin.Version,
+			Description: plugin.Description,
+			WebConfig:   plugin.WebConfig,
+			Meta:        plugin.Meta,
+		})
+	}
+
+	response.Success(c, result, int64(len(result)))
+}
+
+// ServePluginStatic 提供插件前端静态资源
+func ServePluginStatic(c *gin.Context) {
+	pluginID := c.Param("pluginId")
+	filePath := c.Param("filepath")
+
+	// 构建文件路径
+	fullPath := filepath.Join("/opt/chprobe/plugins", pluginID, "web", "dist", filePath)
+	
+	// 安全检查：确保路径在插件目录内
+	cleanPath := filepath.Clean(fullPath)
+	pluginBase := filepath.Join("/opt/chprobe/plugins", pluginID, "web", "dist")
+	if !filepath.HasPrefix(cleanPath, pluginBase) {
+		response.Failed(c, response.ErrStruct, "Invalid file path")
+		return
+	}
+
+	// 检查文件是否存在
+	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
+		response.Failed(c, response.ErrRecordNotFound, "File not found")
+		return
+	}
+
+	// 根据文件扩展名设置Content-Type
+	c.File(cleanPath)
 }
 
 func QueryRoute(c *gin.Context) {

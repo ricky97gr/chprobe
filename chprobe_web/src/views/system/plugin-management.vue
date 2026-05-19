@@ -427,7 +427,7 @@ const startPlugin = async (pluginId: string) => {
     
     await api.post('/plugin-manager/start', {
       pluginId: pluginId,
-      command: `/opt/chprobe/plugins/${pluginId}/plugin`,
+      command: `/opt/chprobe/plugins/${pluginId}/server`,
       args: [],
       config: {}
     })
@@ -503,7 +503,7 @@ const restartPlugin = async (pluginId: string) => {
     
     await api.post('/plugin-manager/restart', {
       pluginId: pluginId,
-      command: `/opt/chprobe/plugins/${pluginId}/plugin`,
+      command: `/opt/chprobe/plugins/${pluginId}/server`,
       args: [],
       config: {}
     })

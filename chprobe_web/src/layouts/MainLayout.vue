@@ -33,7 +33,24 @@
 
         <!-- 插件菜单 - 作为一级菜单显示，放在仪表盘下面 -->
         <template v-for="plugin in pluginMenuItems" :key="plugin.path">
-          <a-menu-item>
+          <!-- 支持子菜单的插件 -->
+          <a-sub-menu v-if="plugin.children && plugin.children.length > 0" :key="plugin.path">
+            <template #icon>
+              <component :is="getIcon(plugin.meta?.icon as string)" />
+            </template>
+            <template #title>
+              <span>{{ plugin.meta?.title }}</span>
+            </template>
+            <a-menu-item 
+              v-for="child in plugin.children" 
+              :key="child.path"
+              @click="handlePluginMenuClick(child.path)"
+            >
+              {{ child.meta?.title }}
+            </a-menu-item>
+          </a-sub-menu>
+          <!-- 没有子菜单的插件 -->
+          <a-menu-item v-else :key="plugin.path">
             <template #icon>
               <component :is="getIcon(plugin.meta?.icon as string)" />
             </template>
@@ -357,17 +374,23 @@ const onCollapse = (value: boolean) => {
 }
 
 const handleMenuClick = ({ key }: { key: string }) => {
-  console.log('Menu item clicked:', key)
-  if (key === 'logout') {
-    // 退出登录处理
-    localStorage.removeItem('token')
-    message.success('退出登录成功')
-    router.push('/login')
-  } else {
-    console.log('Navigating to:', key)
-    router.push(key)
+    console.log('Menu item clicked:', key)
+    if (key === 'logout') {
+      // 退出登录处理
+      localStorage.removeItem('token')
+      message.success('退出登录成功')
+      router.push('/login')
+    } else {
+      console.log('Navigating to:', key)
+      router.push(key)
+    }
   }
-}
+
+  // 处理插件子菜单点击
+  const handlePluginMenuClick = (path: string) => {
+    console.log('Plugin menu item clicked:', path)
+    router.push(path)
+  }
 
 // 处理顶部标签页切换
 const handleTopTabChange = (key: string) => {

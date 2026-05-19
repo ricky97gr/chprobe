@@ -169,6 +169,16 @@ func Start() {
 				pluginManager.POST("/initialize", controller.InitializePlugin)
 				// 关闭所有插件
 				pluginManager.POST("/shutdown-all", controller.ShutdownAllPlugins)
+				// 获取插件前端配置
+				pluginManager.GET("/web-config", controller.GetPluginWebConfig)
+				// 获取所有插件前端配置
+				pluginManager.GET("/web-configs", controller.GetAllPluginWebConfigs)
+			}
+
+			// 插件前端静态资源
+			pluginStatic := api.Group("/plugin-static/:pluginId/*filepath")
+			{
+				pluginStatic.GET("", controller.ServePluginStatic)
 			}
 
 			// 系统信息
