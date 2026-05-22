@@ -21,20 +21,43 @@ interface PluginMeta {
   version: string
   author: string
   description: string
+  menu?: MenuItem
+  routes?: PluginRoute[]
+  permissions?: string[]
+  apiPrefix?: string
+}
+
+interface MenuItem {
+  id: string
+  title: string
+  icon?: string
+  order?: number
+  children?: MenuChild[]
+}
+
+interface MenuChild {
+  id: string
+  title: string
+  path: string
+  icon?: string
+  order?: number
 }
 
 interface PluginWebRoute {
   path: string
   name: string
   title: string
-  icon: string
-  component: string
+  icon?: string
+  component?: string
 }
 
 interface PluginWebConfig {
   name: string
   description: string
-  routes: PluginWebRoute[]
+  menu?: MenuItem
+  routes?: PluginWebRoute[]
+  permissions?: string[]
+  apiPrefix?: string
 }
 
 interface PluginInfo {
@@ -211,12 +234,89 @@ export function usePluginLoader() {
     for (const plugin of plugins.value) {
       if (plugin.isRunning !== true) continue
       
+      // 优先使用 meta.menu 结构（支持二级菜单）
+      if (plugin.meta?.menu) {
+        const menu = plugin.meta.menu
+        
+        if (menu.children && menu.children.length > 0) {
+          // 有子菜单，创建父菜单
+          menuItems.push({
+            path: `/plugin/${plugin.pluginId}`,
+            name: `Plugin-${plugin.pluginId}`,
+            meta: {
+              title: menu.title || plugin.name,
+              icon: menu.icon || 'AppstoreOutlined',
+              requiresAuth: true
+            },
+            children: menu.children.map((child: MenuChild) => ({
+              path: child.path || `/plugin/${plugin.pluginId}/${child.id}`,
+              name: `Plugin-${plugin.pluginId}-${child.id}`,
+              meta: {
+                title: child.title || child.id,
+                icon: child.icon || 'AppstoreOutlined',
+                requiresAuth: true
+              }
+            }))
+          })
+        } else {
+          // 没有子菜单，直接作为菜单项
+          menuItems.push({
+            path: `/plugin/${plugin.pluginId}`,
+            name: `Plugin-${plugin.pluginId}`,
+            meta: {
+              title: menu.title || plugin.name,
+              icon: menu.icon || 'AppstoreOutlined',
+              requiresAuth: true
+            }
+          })
+        }
+        continue
+      }
+      
+      // 使用 webConfig.menu 结构
+      if (plugin.webConfig?.menu) {
+        const menu = plugin.webConfig.menu
+        
+        if (menu.children && menu.children.length > 0) {
+          // 有子菜单，创建父菜单
+          menuItems.push({
+            path: `/plugin/${plugin.pluginId}`,
+            name: `Plugin-${plugin.pluginId}`,
+            meta: {
+              title: menu.title || plugin.name,
+              icon: menu.icon || 'AppstoreOutlined',
+              requiresAuth: true
+            },
+            children: menu.children.map((child: MenuChild) => ({
+              path: child.path || `/plugin/${plugin.pluginId}/${child.id}`,
+              name: `Plugin-${plugin.pluginId}-${child.id}`,
+              meta: {
+                title: child.title || child.id,
+                icon: child.icon || 'AppstoreOutlined',
+                requiresAuth: true
+              }
+            }))
+          })
+        } else {
+          // 没有子菜单，直接作为菜单项
+          menuItems.push({
+            path: `/plugin/${plugin.pluginId}`,
+            name: `Plugin-${plugin.pluginId}`,
+            meta: {
+              title: menu.title || plugin.name,
+              icon: menu.icon || 'AppstoreOutlined',
+              requiresAuth: true
+            }
+          })
+        }
+        continue
+      }
+      
+      // 使用 webConfig.routes 结构（旧的兼容方式）
       if (plugin.webConfig && plugin.webConfig.routes && plugin.webConfig.routes.length > 0) {
-        // 如果有多个路由，创建父菜单项
         const hasMultipleRoutes = plugin.webConfig.routes.length > 1
         
         if (hasMultipleRoutes) {
-          // 创建父菜单
           const firstRoute = plugin.webConfig.routes[0]
           menuItems.push({
             path: `/plugin/${plugin.pluginId}`,
@@ -231,13 +331,12 @@ export function usePluginLoader() {
               name: `Plugin-${plugin.pluginId}-${route?.name || ''}`,
               meta: {
                 title: route?.title || '',
-                icon: route?.icon || '',
+                icon: route?.icon || 'AppstoreOutlined',
                 requiresAuth: true
               }
             }))
           })
         } else {
-          // 只有一个路由，直接作为菜单项
           const route = plugin.webConfig.routes[0]
           if (route) {
             menuItems.push({
@@ -251,18 +350,19 @@ export function usePluginLoader() {
             })
           }
         }
-      } else {
-        // 没有web配置，使用默认配置
-        menuItems.push({
-          path: `/plugin/${plugin.pluginId}`,
-          name: `Plugin-${plugin.pluginId}`,
-          meta: {
-            title: plugin.name,
-            icon: 'AppstoreOutlined',
-            requiresAuth: true
-          }
-        })
+        continue
       }
+      
+      // 没有配置，使用默认配置
+      menuItems.push({
+        path: `/plugin/${plugin.pluginId}`,
+        name: `Plugin-${plugin.pluginId}`,
+        meta: {
+          title: plugin.name,
+          icon: 'AppstoreOutlined',
+          requiresAuth: true
+        }
+      })
     }
     
     return menuItems

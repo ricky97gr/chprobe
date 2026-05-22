@@ -34,7 +34,7 @@
         <!-- 插件菜单 - 作为一级菜单显示，放在仪表盘下面 -->
         <template v-for="plugin in pluginMenuItems" :key="plugin.path">
           <!-- 支持子菜单的插件 -->
-          <a-sub-menu v-if="plugin.children && plugin.children.length > 0" :key="plugin.path">
+          <a-sub-menu v-if="plugin.children && plugin.children.length > 0" :key="`sub-${plugin.path}`">
             <template #icon>
               <component :is="getIcon(plugin.meta?.icon as string)" />
             </template>
@@ -46,11 +46,14 @@
               :key="child.path"
               @click="handlePluginMenuClick(child.path)"
             >
-              {{ child.meta?.title }}
+              <template #icon v-if="child.meta?.icon">
+                <component :is="getIcon(child.meta?.icon as string)" />
+              </template>
+              <span>{{ child.meta?.title }}</span>
             </a-menu-item>
           </a-sub-menu>
           <!-- 没有子菜单的插件 -->
-          <a-menu-item v-else :key="plugin.path">
+          <a-menu-item v-else :key="`item-${plugin.path}`">
             <template #icon>
               <component :is="getIcon(plugin.meta?.icon as string)" />
             </template>

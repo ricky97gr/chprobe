@@ -25,7 +25,7 @@ var (
 )
 
 func InitPluginManager() {
-	pluginDir = "./tmp/plugins"
+	pluginDir = "/opt/chprobe/plugins"
 
 	os.MkdirAll(pluginDir, 0755)
 
@@ -371,30 +371,6 @@ func GetPluginRoutes(c *gin.Context) {
 	}
 
 	response.Success(c, routes, int64(len(routes)))
-}
-
-// GetPluginWebConfig 获取插件前端配置（包含路由和菜单）
-func GetPluginWebConfig(c *gin.Context) {
-	pluginID := c.Query("pluginId")
-	if pluginID == "" {
-		response.Failed(c, response.ErrStruct, "Plugin ID is required")
-		return
-	}
-
-	plugin, exists := pluginManager.GetPlugin(pluginID)
-	if !exists {
-		response.Failed(c, response.ErrRecordNotFound, "Plugin not found or not running")
-		return
-	}
-
-	response.Success(c, gin.H{
-		"pluginId":     pluginID,
-		"name":         plugin.Name,
-		"version":      plugin.Version,
-		"description":  plugin.Description,
-		"webConfig":    plugin.WebConfig,
-		"meta":         plugin.Meta,
-	}, 0)
 }
 
 // GetAllPluginWebConfigs 获取所有已启动插件的前端配置

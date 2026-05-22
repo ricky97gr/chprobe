@@ -23,29 +23,49 @@ const (
 	PluginStatusError   PluginStatus = "error"
 )
 
-// PluginMeta 插件元信息（从meta.json读取）
-type PluginMeta struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Author      string `json:"author"`
-	Description string `json:"description"`
+// MenuItem 菜单项
+type MenuItem struct {
+	ID       string      `json:"id"`
+	Title    string      `json:"title"`
+	Path     string      `json:"path"`
+	Icon     string      `json:"icon"`
+	Order    int         `json:"order"`
+	Children []MenuItem  `json:"children,omitempty"`
 }
 
-// PluginRoute 插件前端路由配置（从web/plugin.json读取）
-type PluginRoute struct {
+// PluginMeta 插件元信息（从meta.json读取）
+type PluginMeta struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Version     string   `json:"version"`
+	Author      string   `json:"author"`
+	Description string   `json:"description"`
+	License     string   `json:"license,omitempty"`
+	PluginType []string `json:"plugin_type,omitempty"`
+	Main       string   `json:"main,omitempty"`
+	ESModule    string   `json:"esModule,omitempty"`
+	Menu       MenuItem `json:"menu,omitempty"`
+	Routes     []Route  `json:"routes,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
+	ApiPrefix  string   `json:"apiPrefix,omitempty"`
+}
+
+// Route 路由配置
+type Route struct {
 	Path      string `json:"path"`
-	Name      string `json:"name"`
-	Title     string `json:"title"`
-	Icon      string `json:"icon"`
+	Name     string `json:"name"`
+	Title    string `json:"title"`
 	Component string `json:"component"`
 }
 
-// PluginWebConfig 插件Web配置（从web/plugin.json读取）
+// PluginWebConfig 插件Web配置
 type PluginWebConfig struct {
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Routes      []PluginRoute `json:"routes"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Menu       MenuItem `json:"menu,omitempty"`
+	Routes     []Route  `json:"routes,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
+	ApiPrefix  string   `json:"apiPrefix,omitempty"`
 }
 
 type ManagedPlugin struct {
@@ -93,24 +113,29 @@ func (m *Manager) readPluginMeta(pluginID string) (*PluginMeta, error) {
 	return &meta, nil
 }
 
-// readPluginWebConfig 读取插件的web/plugin.json文件
+// readPluginWebConfig 读取插件的Web配置（从meta.json或web/plugin.json）
 func (m *Manager) readPluginWebConfig(pluginID string) (*PluginWebConfig, error) {
-	webConfigPath := filepath.Join(m.pluginDir, pluginID, "web", "plugin.json")
-	data, err := os.ReadFile(webConfigPath)
+	metaPath := filepath.Join(m.pluginDir, pluginID, "meta.json")
+	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// 如果web/plugin.json不存在，返回空配置
-			return &PluginWebConfig{}, nil
-		}
-		return nil, fmt.Errorf("failed to read web/plugin.json: %w", err)
+		return nil, fmt.Errorf("failed to read meta.json: %w", err)
 	}
 
-	var webConfig PluginWebConfig
-	if err := json.Unmarshal(data, &webConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal web/plugin.json: %w", err)
+	var meta PluginMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal meta.json: %w", err)
 	}
 
-	return &webConfig, nil
+	webConfig := &PluginWebConfig{
+		Name:        meta.Name,
+		Description: meta.Description,
+		Menu:       meta.Menu,
+		Routes:     meta.Routes,
+		Permissions: meta.Permissions,
+		ApiPrefix:  meta.ApiPrefix,
+	}
+
+	return webConfig, nil
 }
 
 func (m *Manager) StartPlugin(ctx context.Context, pluginID, command string, args []string, config map[string]interface{}) (*ManagedPlugin, error) {
@@ -188,6 +213,8 @@ func (m *Manager) StartPlugin(ctx context.Context, pluginID, command string, arg
 		return nil, fmt.Errorf("plugin is not healthy: %s", health.Status)
 	}
 
+	utils.Logger.Infof("All plugin initialization steps completed successfully, plugin is running\n")
+
 	// 读取插件配置文件
 	meta, err := m.readPluginMeta(pluginID)
 	if err != nil {
@@ -217,6 +244,8 @@ func (m *Manager) StartPlugin(ctx context.Context, pluginID, command string, arg
 	}
 
 	m.plugins[pluginID] = managedPlugin
+
+	utils.Logger.Infof("Plugin %s started successfully and registered\n", pluginID)
 
 	return managedPlugin, nil
 }
