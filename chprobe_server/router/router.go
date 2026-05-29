@@ -61,22 +61,6 @@ func Start() {
 				// 获取主机详情
 				host.GET("/detail/:uuid", controller.GetHostDetail)
 			}
-			// 镜像管理
-			image := authApi.Group("/image")
-			{
-				// 获取镜像列表
-				image.GET("/list", controller.GetImageList)
-				// 获取镜像详情
-				image.GET("/detail/:id", controller.GetImageDetail)
-			}
-			// 容器管理
-			container := authApi.Group("/container")
-			{
-				// 获取容器列表
-				container.GET("/list", controller.GetContainerList)
-				// 获取容器详情
-				container.GET("/detail/:id", controller.GetContainerDetail)
-			}
 			// 日志管理
 			log := authApi.Group("/log")
 			{
@@ -178,6 +162,9 @@ func Start() {
 			{
 				pluginStatic.GET("", controller.ServePluginStatic)
 			}
+
+			// 插件API转发（匹配 /api/:prefix/*）
+			api.Any("/:prefix/*path", controller.ServePluginApi)
 
 			// 系统信息
 			system := authApi.Group("/system")

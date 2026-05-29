@@ -3,6 +3,7 @@ package controller
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -376,14 +377,14 @@ func GetPluginRoutes(c *gin.Context) {
 // GetAllPluginWebConfigs 获取所有已启动插件的前端配置
 func GetAllPluginWebConfigs(c *gin.Context) {
 	runningPlugins := pluginManager.GetAllPlugins()
-	
+
 	type PluginWebInfo struct {
-		PluginID     string                 `json:"pluginId"`
-		Name         string                 `json:"name"`
-		Version      string                 `json:"version"`
-		Description  string                 `json:"description"`
-		WebConfig    *pluginmanager.PluginWebConfig `json:"webConfig"`
-		Meta         *pluginmanager.PluginMeta      `json:"meta"`
+		PluginID    string                         `json:"pluginId"`
+		Name        string                         `json:"name"`
+		Version     string                         `json:"version"`
+		Description string                         `json:"description"`
+		WebConfig   *pluginmanager.PluginWebConfig `json:"webConfig"`
+		Meta        *pluginmanager.PluginMeta      `json:"meta"`
 	}
 
 	var result []PluginWebInfo
@@ -406,12 +407,12 @@ func ServePluginStatic(c *gin.Context) {
 	pluginID := c.Param("pluginId")
 	filePath := c.Param("filepath")
 
-	// 构建文件路径
-	fullPath := filepath.Join("/opt/chprobe/plugins", pluginID, "web", "dist", filePath)
-	
+	// 构建文件路径（filepath 已经包含 dist/xxx.js）
+	fullPath := filepath.Join("/opt/chprobe/plugins", pluginID, "web", filePath)
+
 	// 安全检查：确保路径在插件目录内
 	cleanPath := filepath.Clean(fullPath)
-	pluginBase := filepath.Join("/opt/chprobe/plugins", pluginID, "web", "dist")
+	pluginBase := filepath.Join("/opt/chprobe/plugins", pluginID, "web")
 	if !filepath.HasPrefix(cleanPath, pluginBase) {
 		response.Failed(c, response.ErrStruct, "Invalid file path")
 		return
@@ -451,6 +452,40 @@ func ForwardRequest(c *gin.Context) {
 	}
 
 	body, err := forwarder.ForwardJSON(req.PluginID, req.Path, req.Method, req.Body, req.Headers)
+	if err != nil {
+		response.Failed(c, response.ErrDB, "Failed to forward request: "+err.Error())
+		return
+	}
+
+	c.Data(http.StatusOK, "application/json", body)
+}
+
+func ServePluginApi(c *gin.Context) {
+	apiPrefix := "/" + c.Param("prefix")
+	fullPath := c.Request.URL.Path
+	method := c.Request.Method
+
+	plugin, exists := pluginManager.GetPluginByApiPrefix(apiPrefix)
+	if !exists {
+		response.Failed(c, response.ErrRecordNotFound, "Plugin not found for api prefix: "+apiPrefix)
+		return
+	}
+
+	pluginID := plugin.ID
+
+	var bodyData map[string]interface{}
+	if c.Request.Body != nil {
+		json.NewDecoder(c.Request.Body).Decode(&bodyData)
+	}
+
+	headers := make(map[string]string)
+	for k, v := range c.Request.Header {
+		if len(v) > 0 {
+			headers[k] = v[0]
+		}
+	}
+
+	body, err := forwarder.ForwardJSON(pluginID, fullPath, method, bodyData, headers)
 	if err != nil {
 		response.Failed(c, response.ErrDB, "Failed to forward request: "+err.Error())
 		return

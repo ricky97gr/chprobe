@@ -295,6 +295,19 @@ func (m *Manager) GetAllPlugins() []*ManagedPlugin {
 	return plugins
 }
 
+func (m *Manager) GetPluginByApiPrefix(apiPrefix string) (*ManagedPlugin, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, plugin := range m.plugins {
+		if plugin.WebConfig != nil && plugin.WebConfig.ApiPrefix == apiPrefix {
+			return plugin, true
+		}
+	}
+
+	return nil, false
+}
+
 func (m *Manager) GetPluginRoutes(pluginID string) ([]*shared.RouteInfo, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

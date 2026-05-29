@@ -23,25 +23,6 @@ const router = createRouter({
           meta: { title: '仪表盘', icon: 'DashboardOutlined' }
         },
         {
-          path: 'container',
-          name: 'Container',
-          meta: { title: '容器管理', icon: 'ContainerOutlined', hidden: true },
-          children: [
-            {
-              path: 'list',
-              name: 'ContainerList',
-              component: () => import('@/views/container/list.vue'),
-              meta: { title: '容器列表' }
-            },
-            {
-              path: 'image',
-              name: 'ContainerImage',
-              component: () => import('@/views/container/image.vue'),
-              meta: { title: '镜像列表' }
-            }
-          ]
-        },
-        {
           path: 'upgrade-management',
           name: 'UpgradeManagement',
           component: () => import('@/views/system/upgrade-management.vue'),
