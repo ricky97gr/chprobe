@@ -163,9 +163,6 @@ func Start() {
 				pluginStatic.GET("", controller.ServePluginStatic)
 			}
 
-			// 插件API转发（匹配 /api/:prefix/*）
-			api.Any("/:prefix/*path", controller.ServePluginApi)
-
 			// 系统信息
 			system := authApi.Group("/system")
 			{
@@ -181,6 +178,9 @@ func Start() {
 				// 获取仪表盘统计数据
 				dashboard.GET("/stats", controller.GetDashboardStats)
 			}
+
+			// 插件API转发（匹配 /api/:prefix/*，需要认证，放在最后作为兜底）
+			authApi.Any("/:prefix/*path", controller.ServePluginApi)
 		}
 	}
 

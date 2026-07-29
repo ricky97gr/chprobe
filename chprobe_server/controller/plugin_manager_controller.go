@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -461,13 +462,22 @@ func ForwardRequest(c *gin.Context) {
 }
 
 func ServePluginApi(c *gin.Context) {
-	apiPrefix := "/" + c.Param("prefix")
 	fullPath := c.Request.URL.Path
 	method := c.Request.Method
 
-	plugin, exists := pluginManager.GetPluginByApiPrefix(apiPrefix)
-	if !exists {
-		response.Failed(c, response.ErrRecordNotFound, "Plugin not found for api prefix: "+apiPrefix)
+	// 遍历所有插件，查找匹配 apiPrefix 的插件
+	var plugin *pluginmanager.ManagedPlugin
+	var exists bool
+	for _, p := range pluginManager.GetAllPlugins() {
+		if p.WebConfig != nil && strings.HasPrefix(fullPath, p.WebConfig.ApiPrefix) {
+			plugin = p
+			exists = true
+			break
+		}
+	}
+
+	if !exists || plugin == nil {
+		response.Failed(c, response.ErrRecordNotFound, "Plugin not found for path: "+fullPath)
 		return
 	}
 
