@@ -179,7 +179,8 @@ func Start() {
 				dashboard.GET("/stats", controller.GetDashboardStats)
 			}
 
-			// 插件API转发（匹配 /api/:prefix/*，需要认证，放在最后作为兜底）
+			// 插件API转发（匹配 /api/:prefix 和 /api/:prefix/*，需要认证，放在最后作为兜底）
+			authApi.Any("/:prefix", controller.ServePluginApi)
 			authApi.Any("/:prefix/*path", controller.ServePluginApi)
 		}
 	}

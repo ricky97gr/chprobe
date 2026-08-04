@@ -17,7 +17,7 @@ export interface ApiErrorResponse {
 }
 
 // 创建axios实例
-const service: AxiosInstance = axios.create({
+export const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 10000,
   headers: {
@@ -45,7 +45,12 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const res = response.data;
-    
+
+    // 插件API响应格式 { success, data, error } — 直接透传
+    if (res && typeof (res as any).success === 'boolean') {
+      return response;
+    }
+
     // 检查响应码
     if (res.code !== 200) {
       // 处理错误响应

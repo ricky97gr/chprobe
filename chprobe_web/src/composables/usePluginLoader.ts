@@ -1,6 +1,6 @@
 import { ref, computed, defineComponent, h, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
-import { get, post } from '@/api/request'
+import { get, post, service } from '@/api/request'
 import { eventBus } from '@/utils/eventBus'
 
 interface PluginRoute {
@@ -225,36 +225,67 @@ export function usePluginLoader() {
     })
   }
 
+  // 创建插件专用 request 工具（使用主应用 axios 实例，自动携带 token/baseURL）
+  const createPluginRequest = () => {
+    return {
+      async get(url: string, params?: any) {
+        const resp = await service.get(url, { params })
+        return resp.data  // { success, data, error }
+      },
+      async post(url: string, data?: any) {
+        const resp = await service.post(url, data)
+        return resp.data
+      },
+      async put(url: string, data?: any) {
+        const resp = await service.put(url, data)
+        return resp.data
+      },
+      async del(url: string, params?: any) {
+        const resp = await service.delete(url, { params })
+        return resp.data
+      }
+    }
+  }
+
   // 动态加载插件组件
   const loadPluginComponent = async (pluginId: string, componentName: string = 'index') => {
     try {
       const plugin = plugins.value.find(p => p.pluginId === pluginId)
       if (!plugin) throw new Error('Plugin not found')
-      
+
       const mainFile = plugin.meta?.main || 'dist/chprobe-plugin-container.umd.js'
       const scriptUrl = getPluginAssetUrl(pluginId, mainFile)
-      
+
       console.log(`加载插件组件: pluginId=${pluginId}, script=${scriptUrl}, component=${componentName}`)
-      
+
       await loadScript(scriptUrl)
-      
+
       const pluginName = plugin.meta?.name || 'ContainerPlugin'
       const pluginGlobal = (window as any)[pluginName]
-      
+
       if (pluginGlobal) {
         console.log(`插件全局对象已获取: ${pluginName}`, pluginGlobal)
-        
+
         // 获取实际的插件对象（处理 default 导出的情况）
         const pluginObj = pluginGlobal.default || pluginGlobal
-        
+
         if (pluginObj.install) {
           const { app } = await import('@/main')
-          pluginObj.install(app)
-          console.log(`插件已安装到 Vue app`)
+          // 注入 request 工具，使用主应用的 axios 实例（自动携带 token、baseURL 等）
+          const pluginRequest = createPluginRequest()
+          pluginObj.install(app, { request: pluginRequest })
+          console.log(`插件已安装到 Vue app（已注入 request）`)
         }
-        
-        // 从插件的导出中获取组件
+
+        // 先从命名导出查找组件
+        if (pluginGlobal[componentName]) {
+          console.log(`找到命名导出组件: ${componentName}`)
+          return pluginGlobal[componentName]
+        }
+
+        // 再从default导出查找组件
         if (pluginObj[componentName]) {
+          console.log(`找到default导出组件: ${componentName}`)
           return pluginObj[componentName]
         }
         

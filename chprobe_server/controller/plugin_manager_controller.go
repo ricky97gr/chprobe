@@ -4,16 +4,19 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/ricky97gr/chprobe/chprobe_common/utils"
+	conf "github.com/ricky97gr/chprobe/chprobe_server/config"
 	"github.com/ricky97gr/chprobe/chprobe_server/database"
 	"github.com/ricky97gr/chprobe/chprobe_server/models"
 	"github.com/ricky97gr/chprobe/chprobe_server/pluginmanager"
@@ -205,7 +208,42 @@ func StartPlugin(c *gin.Context) {
 		return
 	}
 
+	// 自动初始化插件数据库
+	go initPluginDatabase(req.PluginID)
+
 	response.Success(c, managedPlugin, 0)
+}
+
+// initPluginDatabase 自动调用插件的 /api/init-db 接口初始化数据库
+func initPluginDatabase(pluginID string) {
+	cfg, err := conf.GetConfig()
+	if err != nil {
+		utils.Logger.Warnf("获取配置失败，跳过插件数据库初始化, pluginId=%s, err=%v", pluginID, err)
+		return
+	}
+
+	data := map[string]string{
+		"host":     cfg.Mysql.IP,
+		"port":     strconv.FormatUint(uint64(cfg.Mysql.Port), 10),
+		"user":     cfg.Mysql.User,
+		"password": cfg.Mysql.Password,
+		"dbname":   cfg.Mysql.DB,
+	}
+
+	utils.Logger.Infof("初始化插件数据库, pluginId=%s, host=%s, port=%s", pluginID, data["host"], data["port"])
+
+	result, err := pluginManager.HandleRequest(context.Background(), pluginID, "POST", "/api/init-db", data)
+	if err != nil {
+		utils.Logger.Warnf("插件数据库初始化失败, pluginId=%s, err=%v", pluginID, err)
+		return
+	}
+
+	if !result.Success {
+		utils.Logger.Warnf("插件数据库初始化返回失败, pluginId=%s, error=%s", pluginID, result.Error)
+		return
+	}
+
+	utils.Logger.Infof("插件数据库初始化成功, pluginId=%s", pluginID)
 }
 
 func StopPlugin(c *gin.Context) {
@@ -465,6 +503,7 @@ func ServePluginApi(c *gin.Context) {
 	fullPath := c.Request.URL.Path
 	method := c.Request.Method
 
+	fmt.Println("1111111", fullPath, method)
 	// 遍历所有插件，查找匹配 apiPrefix 的插件
 	var plugin *pluginmanager.ManagedPlugin
 	var exists bool
