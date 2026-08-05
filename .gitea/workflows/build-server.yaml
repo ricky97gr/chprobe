@@ -1,0 +1,75 @@
+# 在 Gitea Actions runner 中编译 chprobe_server
+# 运行环境: 10.182.34.118:80/library/golang:1.26.5 (内网 Harbor, HTTP)
+# 网络说明:
+#   - pod 无直连外网, 经 squid (10.186.39.112:3128) 走代理
+#   - Go 依赖走国内代理 goproxy.cn (proxy.golang.org 不可达)
+#   - 内网地址 (Gitea/Harbor) 直连, 不走代理
+name: build-server
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+jobs:
+  build-server:
+    runs-on: linux/amd64
+    container:
+      image: 10.182.34.118:80/library/golang:1.26.5
+    env:
+      # ---- 外网代理 (squid) ----
+      http_proxy: http://10.186.39.112:3128
+      https_proxy: http://10.186.39.112:3128
+      HTTP_PROXY: http://10.186.39.112:3128
+      HTTPS_PROXY: http://10.186.39.112:3128
+      # ---- 内网地址直连, 不走代理 ----
+      no_proxy: localhost,127.0.0.1,10.182.34.110,10.182.34.118
+      NO_PROXY: localhost,127.0.0.1,10.182.34.110,10.182.34.118
+      # ---- Go 国内代理 ----
+      GOPROXY: https://goproxy.cn,direct
+      GOFLAGS: -mod=mod
+      GOSUMDB: off
+
+    steps:
+      # 不用 actions/checkout (GitHub 上拉取不可靠), 手动 clone
+      - name: 检出代码
+        run: |
+          git clone --depth 1 --branch "${GITHUB_REF_NAME}" \
+            "http://oauth2:${GITHUB_TOKEN}@10.182.34.110:30300/${GITHUB_REPOSITORY}.git" .
+          git log -1 --oneline
+
+      - name: 编译 server
+        run: |
+          cd chprobe_server
+          mkdir -p bin
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o bin/chprobe_server ./cmd/main.go
+          ls -lh bin/chprobe_server
+          sha256sum bin/chprobe_server
+
+      # 把编译产物上传到 Gitea 滚动 release: chprobe-build
+      - name: 上传二进制到 Gitea Release
+        run: |
+          set -euo pipefail
+          REPO="${GITHUB_REPOSITORY}"
+          API="http://10.182.34.110:30300/api/v1/repos/${REPO}"
+          AUTH="Authorization: token ${GITHUB_TOKEN}"
+
+          # 查找或创建滚动 release
+          REL=$(curl -sf -H "$AUTH" "${API}/releases/tags/chprobe-build" || true)
+          if [ -z "$REL" ]; then
+            curl -sf -X POST -H "$AUTH" -H "Content-Type: application/json" \
+              -d "{\"tag_name\":\"chprobe-build\",\"name\":\"chprobe-build\",\"target_commitish\":\"${GITHUB_SHA}\",\"draft\":false,\"prerelease\":true}" \
+              "${API}/releases" >/dev/null
+            REL=$(curl -sf -H "$AUTH" "${API}/releases/tags/chprobe-build")
+          fi
+          REL_ID=$(echo "$REL" | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2)
+
+          # 删除旧的同名附件
+          OLD=$(curl -sf -H "$AUTH" "${API}/releases/${REL_ID}/assets" \
+            | tr '}' '\n' | grep '"name":"chprobe_server"' | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2 || true)
+          [ -n "${OLD}" ] && curl -sf -X DELETE -H "$AUTH" "${API}/releases/${REL_ID}/assets/${OLD}"
+
+          # 上传新二进制
+          curl -sf -X POST -H "$AUTH" -F "attachment=@chprobe_server/bin/chprobe_server;filename=chprobe_server" \
+            "${API}/releases/${REL_ID}/assets?name=chprobe_server" >/dev/null
+          echo "✅ 已上传 chprobe_server 到 release: chprobe-build"
