@@ -32,10 +32,13 @@ jobs:
 
     steps:
       # 不用 actions/checkout (GitHub 上拉取不可靠), 手动 clone
+      # 认证用 github.token 上下文 (Gitea Actions 自动注入), 避免依赖环境变量注入
       - name: 检出代码
         run: |
+          TOKEN="${{ github.token }}"
+          echo "debug: token_len=${#TOKEN} repo=${GITHUB_REPOSITORY} ref=${GITHUB_REF_NAME}"
           git clone --depth 1 --branch "${GITHUB_REF_NAME}" \
-            "http://oauth2:${GITHUB_TOKEN}@10.182.34.110:30300/${GITHUB_REPOSITORY}.git" .
+            "http://oauth2:${TOKEN}@10.182.34.110:30300/${GITHUB_REPOSITORY}.git" .
           git log -1 --oneline
 
       - name: 编译 server
